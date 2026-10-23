@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+<rect width="1600" height="1000" fill="#0b111a"/>
+<text x="92" y="73" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#8da4bc" text-anchor="start">CODEX / MX CREATIVE CONSOLE</text>
+<text x="90" y="139" font-family="Segoe UI,Arial,sans-serif" font-size="46" font-weight="600" fill="#f3f7fc" text-anchor="start">Your agents, at a glance.</text>
+<text x="92" y="180" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" fill="#a4b4c8" text-anchor="start">Local Mac + Linux over SSH. Nine status keys. Turn the dial to see the next page.</text>
+<rect x="132" y="253" width="546" height="580" rx="36" fill="#06090d"/>
+<rect x="122" y="235" width="546" height="580" rx="36" fill="#242b34" stroke="#3b4553" stroke-width="2"/>
+<rect x="143" y="257" width="504" height="495" rx="20" fill="#111720"/>
+<rect x="155" y="269" width="152" height="148" rx="15" fill="#05080c"/>
+<rect x="160" y="274" width="142" height="138" rx="10" fill="#00375f"/>
+<text x="231" y="308" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#ffffff" text-anchor="middle">local</text>
+<text x="231" y="346" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#ffffff" text-anchor="middle">api</text>
+<text x="231" y="383" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">WORKING</text>
+<rect x="319" y="269" width="152" height="148" rx="15" fill="#05080c"/>
+<rect x="324" y="274" width="142" height="138" rx="10" fill="#6e4100"/>
+<text x="395" y="308" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#ffffff" text-anchor="middle">local</text>
+<text x="395" y="346" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#ffffff" text-anchor="middle">web</text>
+<text x="395" y="383" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">APPROVAL?</text>
+<rect x="483" y="269" width="152" height="148" rx="15" fill="#05080c"/>
+<rect x="488" y="274" width="142" height="138" rx="10" fill="#00375f"/>
+<text x="559" y="308" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#ffffff" text-anchor="middle">linux-desktop</text>
+<text x="559" y="346" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#ffffff" text-anchor="middle">build</text>
+<text x="559" y="383" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">TOOL</text>
+<rect x="155" y="429" width="152" height="148" rx="15" fill="#05080c"/>
+<rect x="160" y="434" width="142" height="138" rx="10" fill="#004628"/>
+<text x="231" y="468" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#ffffff" text-anchor="middle">local</text>
+<text x="231" y="506" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#ffffff" text-anchor="middle">tests</text>
+<text x="231" y="543" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">TURN STOP</text>
+<rect x="319" y="429" width="152" height="148" rx="15" fill="#05080c"/>
+<rect x="324" y="434" width="142" height="138" rx="10" fill="#004628"/>
+<text x="395" y="468" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#ffffff" text-anchor="middle">local</text>
+<text x="395" y="506" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#ffffff" text-anchor="middle">&gt; reviewer</text>
+<text x="395" y="543" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">STOPPED</text>
+<rect x="483" y="429" width="152" height="148" rx="15" fill="#05080c"/>
+<rect x="488" y="434" width="142" height="138" rx="10" fill="#202630"/>
+<text x="559" y="468" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#ffffff" text-anchor="middle">linux-desktop</text>
+<text x="559" y="506" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#ffffff" text-anchor="middle">worker</text>
+<text x="559" y="543" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">OFFLINE</text>
+<rect x="155" y="589" width="152" height="148" rx="15" fill="#05080c"/>
+<rect x="160" y="594" width="142" height="138" rx="10" fill="#202630"/>
+<text x="231" y="628" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#ffffff" text-anchor="middle">local</text>
+<text x="231" y="666" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#ffffff" text-anchor="middle">docs</text>
+<text x="231" y="703" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">READY</text>
+<rect x="319" y="589" width="152" height="148" rx="15" fill="#05080c"/>
+<rect x="324" y="594" width="142" height="138" rx="10" fill="#00375f"/>
+<text x="395" y="628" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#ffffff" text-anchor="middle">local</text>
+<text x="395" y="666" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#ffffff" text-anchor="middle">database</text>
+<text x="395" y="703" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">COMPACT</text>
+<rect x="483" y="589" width="152" height="148" rx="15" fill="#05080c"/>
+<rect x="488" y="594" width="142" height="138" rx="10" fill="#69141e"/>
+<text x="559" y="628" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#ffffff" text-anchor="middle">linux-desktop</text>
+<text x="559" y="666" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#ffffff" text-anchor="middle">batch</text>
+<text x="559" y="703" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" fill="#ffffff" text-anchor="middle">EXIT ERROR</text>
+<text x="395" y="784" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#9eabbc" text-anchor="middle">MX Creative Keypad</text>
+<rect x="804" y="285" width="604" height="429" rx="54" fill="#06090d"/>
+<rect x="792" y="271" width="604" height="429" rx="54" fill="#242b34" stroke="#3b4553" stroke-width="2"/>
+<rect x="820" y="297" width="28" height="28" rx="8" fill="#151c25" stroke="#475361" stroke-width="1"/>
+<rect x="1339" y="297" width="28" height="28" rx="8" fill="#151c25" stroke="#475361" stroke-width="1"/>
+<rect x="820" y="641" width="28" height="28" rx="8" fill="#151c25" stroke="#475361" stroke-width="1"/>
+<rect x="1339" y="641" width="28" height="28" rx="8" fill="#151c25" stroke="#475361" stroke-width="1"/>
+<circle cx="1031" cy="480" r="147" fill="#0c1118" stroke="#435060" stroke-width="2"/>
+<circle cx="1031" cy="474" r="137" fill="#313b47" stroke="#536273" stroke-width="2"/>
+<circle cx="1031" cy="474" r="125" fill="#202a35" stroke="#354454" stroke-width="1"/>
+<circle cx="1031" cy="474" r="18" fill="#384657"/>
+<rect x="1251" y="387" width="62" height="171" rx="27" fill="#0b1119" stroke="#4c5968" stroke-width="2"/>
+<rect x="1258" y="401" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="410" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="419" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="428" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="437" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="446" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="455" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="464" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="473" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="482" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="491" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="500" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="509" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="518" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="527" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="536" width="48" height="2" rx="1" fill="#344050"/>
+<rect x="1258" y="545" width="48" height="2" rx="1" fill="#344050"/>
+<text x="1093" y="628" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#9eabbc" text-anchor="middle">MX Creative Dialpad</text>
+<text x="803" y="772" font-family="Segoe UI,Arial,sans-serif" font-size="29" font-weight="600" fill="#eff5fc" text-anchor="start">Agent pages</text>
+<text x="803" y="807" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" fill="#a4b4c8" text-anchor="start">Rotate to browse the next nine rows.</text>
+<text x="803" y="838" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#a4b4c8" text-anchor="start">Press a direct local row to focus its iTerm pane.</text>
+<text x="803" y="867" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" fill="#8296ad" text-anchor="start">Herdr and remote pane focus are not implemented.</text>
+<rect x="92" y="905" width="1416" height="1" rx="0" fill="#293747"/>
+<text x="92" y="945" font-family="Segoe UI,Arial,sans-serif" font-size="14" font-weight="600" fill="#b2c5d8" text-anchor="start">ILLUSTRATIVE PREVIEW</text>
+<text x="305" y="947" font-family="Segoe UI,Arial,sans-serif" font-size="17" font-weight="400" fill="#8296ad" text-anchor="start">Simulated agents · implemented labels and colours · physical layout and fonts may differ</text>
+</svg>

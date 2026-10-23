@@ -4,17 +4,31 @@ Date: 24 October 2026, Australia/Sydney.
 
 ## Observed locally
 
-Environment: Windows build machine; Python 3.11.15, .NET SDK 8.0.202,
+Environment: Windows build machine; stable CPython 3.15.1, .NET SDK 8.0.202,
 Codex CLI 0.163.0-alpha.10.2. The target runtime is macOS/iTerm2; Linux runs
 the remote hook writer and export side.
 
 | Check | Observed result |
 | --- | --- |
-| `python scripts/test_all.py` | 24 Python tests and 16 C# view-model/contract checks passed |
-| `python tests/codex_hook_smoke.py` | Real CLI emitted SessionStart, UserPromptSubmit, Stop, SessionEnd; bridge state updated |
-| `python scripts/build_plugin.py --sdk <real PluginApi.dll>` | Build succeeded, 0 warnings, 0 errors |
-| `logiplugintool pack plugin/bin/Release/package CodexMx_0_1_0.lplug4` | Passed |
-| `logiplugintool verify CodexMx_0_1_0.lplug4` | Passed |
+| `python3.15 scripts/test_all.py` | 38 Python tests and 16 C# view-model/contract checks passed |
+| `python3.15 tests/codex_hook_smoke.py` | Real CLI emitted SessionStart, UserPromptSubmit, Stop, SessionEnd; bridge state updated |
+| `python3.15 scripts/build_plugin.py --sdk <real PluginApi.dll>` | Build succeeded, 0 warnings, 0 errors |
+| `logiplugintool pack plugin/bin/Release/package CodexMx_0_2_0.lplug4` | Passed |
+| `logiplugintool verify CodexMx_0_2_0.lplug4` | Passed |
+| `bash -n install.sh` | Shell syntax check passed |
+
+The original 0.1.0 validation used Python 3.11.15. Version 0.2.0 was retested on
+stable 3.15.1 and now pins Python 3.15 in metadata, runtime checks, installer, and
+the CI template. CPython was downloaded with a private uv 0.13.5 installation;
+the user's existing Python/uv installation was not changed.
+
+Installer coverage executes the real isolated Python 3.15 venv and hook check
+in temporary directories. It verifies repeated installation, spaced paths,
+Herdr preservation, TOML config backups/semantic equivalence, previous plugin
+backup, and no mutation on validation failures or dry-run. The Mac build/link
+branch is tested with a simulated home and compiler output, not with a macOS
+host. Python bootstrap downloads, Options+ vendor setup, and the full Mac install
+still need on-device validation.
 
 The API assembly came from the official NuGet `LogiPluginTool` package
 `6.1.4.22672`, not from a test double. The package verifier checked the resulting

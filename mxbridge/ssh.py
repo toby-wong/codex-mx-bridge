@@ -8,7 +8,7 @@ import time
 from .state import FINAL, MAX_ROWS, clean
 
 
-def command(host, script, python="python3", remote_state=None):
+def command(host, script, python="python3.15", remote_state=None):
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.@-]*", host):
         raise ValueError("Use a simple SSH config alias, e.g. workbox")
     if not script.startswith("/") or not python:

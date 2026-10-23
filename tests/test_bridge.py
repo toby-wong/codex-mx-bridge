@@ -163,7 +163,7 @@ class InstallTests(unittest.TestCase):
     def test_preserves_herdr_and_is_idempotent(self):
         original = {"description":"Existing", "other":"preserve", "hooks":{"SessionStart":[
             {"matcher":"startup", "hooks":[dict(type="command", command="herdr-agent-state.sh")]}]}}
-        proposed = definition("/a path/bridge.py", "/usr/bin/python3")
+        proposed = definition("/a path/bridge.py", "/usr/bin/python3.15")
         result = merge(original, proposed)
         self.assertEqual(result["hooks"]["SessionStart"][0], original["hooks"]["SessionStart"][0])
         self.assertEqual(merge(result, proposed), result)
@@ -194,7 +194,7 @@ class SshTests(unittest.TestCase):
         self.assertIn("StrictHostKeyChecking=yes", args)
         self.assertIn("BatchMode=yes", args)
         remote = shlex.split(args[-1])
-        self.assertEqual(remote, ["python3", "/home/me/a path/bridge.py", "--state-dir", "/tmp/status directory", "export"])
+        self.assertEqual(remote, ["python3.15", "/home/me/a path/bridge.py", "--state-dir", "/tmp/status directory", "export"])
         with self.assertRaises(ValueError):
             command("-oProxyCommand=bad", "/tmp/bridge.py")
 

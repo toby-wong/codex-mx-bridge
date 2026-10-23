@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.15
 """Portable tests plus Python -> C# wire compatibility, no hardware required."""
 import os
 from pathlib import Path

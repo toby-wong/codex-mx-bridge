@@ -13,8 +13,7 @@ On each Codex execution host:
 # If already installed, keep your existing Herdr integration.
 herdr integration install codex
 cd /absolute/path/codex-mx-bridge
-python3 bridge.py install-hooks
-python3 bridge.py install-hooks --apply
+bash install.sh --hooks-only
 ```
 
 Restart the Codex sessions and review the bridge hooks through `/hooks`.
@@ -41,6 +40,12 @@ Detaching Herdr must not mark its agents closed: they still run in the server.
 The Mac hosts the Logitech plugin. Linux hosts only Python and the hooks; it
 does not need Logitech software, .NET, or an inbound HTTP port.
 
+**Yes, Linux needs a small additional install:** run `bash install.sh --hooks-only`
+on the Linux machine where Codex runs. The script obtains Python 3.15 if needed,
+creates an isolated runtime, and merges the Codex hook/export component. The Mac
+installation alone cannot observe a remote process. Nothing needs to be added
+to Herdr itself for this bridge transport.
+
 1. Configure an OpenSSH alias on the Mac, for example:
 
    ```sshconfig
@@ -63,44 +68,52 @@ does not need Logitech software, .NET, or an inbound HTTP port.
    scp -r ./codex-mx-bridge workbox:~/codex-mx-bridge
    ssh workbox
    cd ~/codex-mx-bridge
-   python3 --version
-   python3 bridge.py install-hooks --apply
+   bash install.sh --hooks-only
    codex
    # In Codex: review/trust bridge definitions with /hooks.
    ```
 
-   Use Python 3.10+ and a Codex version with the documented hooks. Install
+   The installer selects stable Python 3.15 and prints the installed **Remote
+   Python path** and **Remote script path**, plus copyable collector arguments.
+   It uses no root privileges or Linux Logitech/.NET packages. Install
    Herdr's own Codex integration on Linux too if you want Herdr's native restore.
    Restart already-running Codex processes so they load the new configuration.
 
 3. On the Mac, start the collector using the **absolute Linux script path**:
 
    ```sh
-   cd /absolute/mac/path/codex-mx-bridge
-   python3 bridge.py collect-ssh \
+   ~/.local/share/codex-mx-bridge/bin/codex-mx collect-ssh \
      --host workbox --alias linux-desktop \
-     --remote-script /home/your-linux-user/codex-mx-bridge/bridge.py \
+     --remote-python /home/your-linux-user/.local/share/codex-mx-bridge/venv-3.15/bin/python \
+     --remote-script '/home/your-linux-user/.local/share/codex-mx-bridge/releases/0.2.0-RELEASE_HASH/bridge.py' \
      --once
    ```
 
    This should exit 0. Then omit `--once` for continued collection:
 
    ```sh
-   python3 bridge.py collect-ssh \
+   ~/.local/share/codex-mx-bridge/bin/codex-mx collect-ssh \
      --host workbox --alias linux-desktop \
-     --remote-script /home/your-linux-user/codex-mx-bridge/bridge.py
+     --remote-python /home/your-linux-user/.local/share/codex-mx-bridge/venv-3.15/bin/python \
+     --remote-script '/home/your-linux-user/.local/share/codex-mx-bridge/releases/0.2.0-RELEASE_HASH/bridge.py'
    ```
+
+   Replace the username and `RELEASE_HASH` with the exact paths printed by the
+   Linux installer. On a later reinstall/upgrade, update the script path if the
+   release hash changes. Use the launcher's printed path on a Mac with a custom
+   install prefix. These placeholders are not literal working paths.
 
    Leave it running in a separate local terminal or a persistent local Herdr
    pane. One collector per alias prevents competing snapshots. Use distinct
    aliases for different Linux hosts. `--interval` accepts 1–60 seconds.
 
-   If Linux uses a custom bridge state directory or Python path:
+   If you maintain a source checkout manually instead, use Python 3.15 and an
+   absolute interpreter path (or `python3.15` on the remote noninteractive PATH):
 
    ```sh
-   python3 bridge.py collect-ssh --host workbox --alias linux-desktop \
+   python3.15 bridge.py collect-ssh --host workbox --alias linux-desktop \
      --remote-script /home/your-linux-user/codex-mx-bridge/bridge.py \
-     --remote-python /usr/bin/python3 \
+     --remote-python /absolute/path/to/python3.15 \
      --remote-state /home/your-linux-user/custom-mx-state
    ```
 
@@ -122,7 +135,7 @@ does not need Logitech software, .NET, or an inbound HTTP port.
 
 * Pull-only: the Mac initiates ordinary SSH commands. No reverse tunnel,
   remote HTTP server, copied private key, or network-facing bridge daemon.
-* Export uses the same Python source on Linux. The collector runs `python3
+* Export uses the same Python 3.15 source on Linux. The collector runs `python3.15
   /absolute/path/bridge.py export` through OpenSSH with shell-quoted arguments.
   Use a simple SSH config alias; put ports, proxy jumps, and identity settings
   in SSH config rather than extra collector arguments.

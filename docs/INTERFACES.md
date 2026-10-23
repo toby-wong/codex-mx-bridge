@@ -117,6 +117,23 @@ power-loss durability are not guaranteed. The project state directory is mode
 0700 and newly written JSON is mode 0600 on macOS/Linux. This is same-user local
 integration, not a boundary against malicious processes running as that user.
 
+The runtime is pinned to stable Python 3.15 (`.python-version`, project metadata,
+entry-point check, installer venv, and CI template). The shell bootstrap uses a
+private [uv install](https://docs.astral.sh/uv/reference/installer/) and
+[managed Python](https://docs.astral.sh/uv/guides/install-python/) when needed.
+An older interpreter still returns advisory `{}` for a hook invocation, but
+normal bridge commands reject it. Installed hooks always name the 3.15 venv
+interpreter explicitly.
+
+`install.sh` and `scripts/install_local.py` are this project's installer, not
+a Codex API. They back up and merge hook settings, and enable explicitly disabled
+user hooks with a verified TOML edit. They do not mark hooks trusted. The Mac
+build can obtain a private .NET 8 SDK with Microsoft's
+[official install script](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script).
+Options+ can optionally be installed through its verified
+[Homebrew cask](https://formulae.brew.sh/cask/logi-options%2B). App permissions,
+vendor setup, and device mappings still require the normal host UI.
+
 The SSH collector uses documented OpenSSH command-line conventions and a
 sanitized versioned export. It preserves SSH host-key checks and noninteractive
 authentication. Polling is eventually consistent; there is no event replay,

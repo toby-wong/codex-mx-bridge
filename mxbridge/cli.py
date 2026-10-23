@@ -105,7 +105,7 @@ def main(argv=None):
     p.add_argument("--host", required=True, help="SSH config alias")
     p.add_argument("--alias", required=True, help="Unique display/source label")
     p.add_argument("--remote-script", required=True, help="Absolute Linux bridge.py path")
-    p.add_argument("--remote-python", default="python3")
+    p.add_argument("--remote-python", default="python3.15")
     p.add_argument("--remote-state")
     p.add_argument("--interval", type=float, default=3)
     p.add_argument("--once", action="store_true")

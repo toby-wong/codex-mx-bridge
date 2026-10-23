@@ -6,11 +6,16 @@ implementation with portable tests and an SDK-validated plugin package; physical
 hardware and macOS integration still need the acceptance checks below.
 
 Repository: [toby-wong/codex-mx-bridge](https://github.com/toby-wong/codex-mx-bridge)
-(private). Version 0.1.0. Documentation verified 24 October 2026.
+(private). Version 0.2.0. Documentation verified 24 October 2026.
+
+![Illustrative rendering of Codex status keys and dial paging](docs/assets/console-preview.png)
+
+Illustration using simulated agents and the implemented labels/colours. Hardware
+proportions and automatic SDK font rendering may differ; this is not a device photograph.
 
 ## What is included
 
-* Python 3.10+ bridge using only the standard library: hook handler, atomic local
+* Python 3.15 bridge using only the standard library: hook handler, atomic local
   state, optional process launcher, hook installer, SSH collector, and simulator.
 * C# .NET 8 plugin built against the official Logi Actions SDK `PluginApi.dll`.
   Nine slot actions, a page adjustment for the dial, and a next-page button.
@@ -19,6 +24,8 @@ Repository: [toby-wong/codex-mx-bridge](https://github.com/toby-wong/codex-mx-br
 * Unit/integration tests, a real-CLI offline hook smoke test, and build/pack tools.
   A three-platform CI template is supplied in `ci/`; enabling it requires GitHub
   workflow permission, which the publishing sign-in did not have.
+* `install.sh` for macOS setup and Linux hooks/export setup. It obtains Python
+  3.15 if needed, preserves existing hook configuration, and checks the install.
 * [Verified interfaces and limitations](docs/INTERFACES.md),
   [SSH and Herdr setup](docs/REMOTE-AND-HERDR.md),
   [test evidence](docs/VALIDATION.md), and a separate
@@ -50,81 +57,81 @@ identifiers and do not recursively export other remote hosts.
 
 ## macOS setup
 
-1. Put the complete project in a stable directory. Hook commands store an
-   absolute path; moving it later requires reinstalling/retrusting the hooks.
+With Codex CLI and Logi Options+ already installed, run this in iTerm2:
 
-   ```sh
-   git clone https://github.com/toby-wong/codex-mx-bridge.git
-   cd codex-mx-bridge
-   python3 --version
-   codex --version
-   ```
+```sh
+git clone https://github.com/toby-wong/codex-mx-bridge.git
+cd codex-mx-bridge
+bash install.sh
+```
 
-   The ZIP works too; extract it and enter its `codex-mx-bridge` directory.
-   Use Python 3.10 or newer. macOS's bundled Python, if any, may be older;
-   use an independently installed current Python in that case.
+For an existing checkout, run `git pull` before `bash install.sh`. For the ZIP,
+extract it, enter its `codex-mx-bridge` folder, and run the same script. It copies
+the necessary source to a stable user-local location, so moving the downloaded
+folder afterwards does not break the hooks.
 
-2. Preview the hook configuration, then merge it into your Codex home:
+The installer:
 
-   ```sh
-   python3 bridge.py install-hooks
-   python3 bridge.py install-hooks --apply
-   ```
+1. Uses an existing stable Python 3.15 or obtains a private runtime using pinned
+   uv 0.13.5. It does not change your default Python or shell configuration.
+2. Creates `~/.local/share/codex-mx-bridge/venv-3.15` with no pip dependencies.
+3. Stages a versioned source release and runs an isolated hook self-check.
+4. On Mac, uses the real Options+ SDK; obtains a private .NET 8 SDK if needed,
+   builds the plugin, and creates its development link. An existing verified
+   CodexMx package/link is backed up before replacement. Other plugins remain intact.
+5. Backs up and merges `hooks.json`, retaining Herdr's handlers. If user-level
+   hooks are explicitly disabled, it enables them with a backed-up, semantically
+   verified TOML edit. Managed policy and Codex hook trust are not bypassed.
+6. Writes a launcher and `installation.json` recording the installed paths.
 
-   The installer preserves existing entries, including Herdr's entries, and
-   writes a timestamped backup before replacing an existing `hooks.json`.
-   It does not edit `config.toml`. Set `CODEX_HOME` before running it if you use
-   a custom Codex home, or use `--codex-home /absolute/codex/home`.
+If Options+ is missing and you have Homebrew, use `bash install.sh --install-options`
+to run its cask installer. Vendor/macOS setup or a reboot may require rerunning
+the bridge installer. Without Homebrew, install Options+ from Logitech first.
+The bridge does not install or replace Codex CLI or log you into it.
 
-3. Restart Codex. Open `/hooks`, review the bridge command definitions, and
-   trust them. **This review is required by Codex for non-managed hooks.** New
-   or modified definitions are skipped until reviewed. If `/hooks` or these
-   events are unavailable, update the CLI before relying on this bridge.
-   No minimum release is claimed without evidence; see [interfaces](docs/INTERFACES.md).
+Useful variants:
 
-   Hooks are currently on by default. If your existing config disables them,
-   merge `hooks = true` into its existing `[features]` table. Managed policy may
-   prohibit user hooks; this installer does not bypass that policy.
+```sh
+bash install.sh --dry-run
+bash install.sh --no-downloads --python /absolute/path/to/python3.15
+bash install.sh --codex-home /absolute/custom/codex/home
+bash install.sh --prefix "$HOME/Developer/codex-mx-installed"
+```
 
-4. Install Logi Options+ and connect the MX Creative Console. Install the supplied
-   `CodexMx_0_1_0.lplug4` by double-clicking it, or build from source below.
-   Restart **Logi Plugin Service** in Options+ settings if the actions do not
-   appear. The package format and installation path are documented in
-   [Logitech's SDK guide](https://logitech.github.io/actions-sdk-docs/csharp/plugin-features/install-and-uninstall/).
+The default launcher is `~/.local/share/codex-mx-bridge/bin/codex-mx`. A custom
+`XDG_DATA_HOME` or `--prefix` changes this path; the installer prints the exact one.
+It does not add the launcher to PATH automatically.
 
-5. In Options+, map **Codex MX Bridge → Agents → Agent slot 1** through
-   **Agent slot 9** to the nine LCD keys. Map **Agent pages** to the dial to
-   browse all rows. Alternatively map **Next agent page** to an available
-   button. Assign these in the iTerm2 profile or a profile you keep selected.
-   The plugin provides actions; it does not overwrite your device profile.
+Two setup steps still need your UI:
 
-6. Start Codex in iTerm2, submit a prompt, and inspect status:
+1. Restart Codex and review/trust the new bridge entries in `/hooks`. **Codex
+   requires this review for non-managed hooks.** Untrusted definitions are
+   skipped. The installer cannot bypass it. Update an older CLI if `/hooks`
+   or the documented events are unavailable.
+2. Restart **Logi Plugin Service** in Options+ settings. Map **Codex MX Bridge →
+   Agents → Agent slot 1** through **9** to the LCD keys, and **Agent pages** to
+   the dial. Alternatively map **Next agent page** to an available button.
 
-   ```sh
-   codex
-   # In a separate terminal:
-   python3 /absolute/path/codex-mx-bridge/bridge.py status
-   ```
+Then run `codex` normally. To add optional process heartbeat/exit tracking:
 
-   For process heartbeat and exit detection, launch it through the optional
-   wrapper. All CLI arguments after `--` pass through unchanged:
+```sh
+~/.local/share/codex-mx-bridge/bin/codex-mx run --label api -- codex
+~/.local/share/codex-mx-bridge/bin/codex-mx status
+```
 
-   ```sh
-   python3 /absolute/path/codex-mx-bridge/bridge.py run --label api -- codex
-   python3 /absolute/path/codex-mx-bridge/bridge.py run -- codex resume
-   ```
+The wrapper inherits the terminal. Its ten-second heartbeat proves process
+liveness rather than model progress. Without it, a row becomes `STALE` after
+15 minutes without events; with it, after 45 seconds without a heartbeat.
 
-   The wrapper inherits the terminal rather than capturing Codex's screen.
-   Its ten-second heartbeat proves process liveness only. It does not prove
-   model progress. Without it, an unrefreshed row becomes `STALE` after 15
-   minutes; a long reasoning interval can therefore be stale while still running.
-   With it, a missing heartbeat becomes stale after 45 seconds.
+Pressing a direct local row can focus its original iTerm2 pane. macOS Automation
+consent may be required. Herdr/remote pane focus is not implemented; status works
+without focus permission. See `~/.local/state/codex-mx-bridge/focus-status.txt`.
 
-7. On a direct local iTerm session, pressing its status key selects the original
-   window/tab/pane. macOS may request Automation access for Logi Plugin Service
-   to control iTerm2. Permit that only if you want this focus feature. Status
-   updates work independently. A reused/closed terminal cannot be reconstructed.
-   Focus results appear in `~/.local/state/codex-mx-bridge/focus-status.txt`.
+Manual alternative: use `python3.15 bridge.py install-hooks --apply`, review
+`/hooks`, and install `dist/CodexMx_0_2_0.lplug4` from the ZIP by double-clicking.
+Do not install that package alongside the source installer's development link.
+The standalone hook command does not edit `config.toml`; the full installer does
+so only when needed to enable explicitly disabled hooks.
 
 ## Status meanings
 
@@ -155,9 +162,9 @@ rows; eviction increments a visible `PRUNED` indicator. Page with the dial.
 
 ```sh
 # Remove closed/stopped/expired local history; active recent rows remain.
-python3 bridge.py clear
+python3.15 bridge.py clear
 # Remove only the named remote cache.
-python3 bridge.py clear --remote linux-desktop
+python3.15 bridge.py clear --remote linux-desktop
 ```
 
 ## Herdr and remote Linux
@@ -176,11 +183,14 @@ that integration is not required for this version's hook transport.
 
 Install the .NET 8 SDK to build or run C# tests. The plugin references the real
 Logitech API supplied by Options+. It never silently substitutes a fake SDK.
+If you only have the installer-managed Python, use
+`~/.local/share/codex-mx-bridge/venv-3.15/bin/python` in place of `python3.15`
+in the manual commands below.
 
 ```sh
-python3 scripts/test_all.py
-python3 tests/codex_hook_smoke.py
-python3 scripts/build_plugin.py --link
+python3.15 scripts/test_all.py
+python3.15 tests/codex_hook_smoke.py
+python3.15 scripts/build_plugin.py --link
 ```
 
 The real-CLI test uses a loopback fixture with a temporary `CODEX_HOME`, no user
@@ -190,7 +200,7 @@ test's temporary generated hook scripts; normal setup uses `/hooks` review.
 If the API DLL is installed elsewhere:
 
 ```sh
-python3 scripts/build_plugin.py --sdk '/actual/path/PluginApi.dll' --link
+python3.15 scripts/build_plugin.py --sdk '/actual/path/PluginApi.dll' --link
 ```
 
 Package and verify with the tested .NET 8-compatible tool version:
@@ -198,7 +208,7 @@ Package and verify with the tested .NET 8-compatible tool version:
 ```sh
 dotnet tool install --global LogiPluginTool --version 6.1.4.22672
 # Include ~/.dotnet/tools in PATH if required by your .NET installation.
-python3 scripts/build_plugin.py --pack
+python3.15 scripts/build_plugin.py --pack
 ```
 
 The latest tool package failed installation under this test machine's .NET 8 SDK;
@@ -209,8 +219,8 @@ The host still supplies `PluginApi.dll` at runtime; it is not redistributed here
 Without hardware, generate isolated synthetic events:
 
 ```sh
-python3 bridge.py --state-dir /tmp/codex-mx-demo demo
-python3 bridge.py --state-dir /tmp/codex-mx-demo status
+python3.15 bridge.py --state-dir /tmp/codex-mx-demo demo
+python3.15 bridge.py --state-dir /tmp/codex-mx-demo status
 ```
 
 The plugin uses the default directory unless **Logi Plugin Service's own**
@@ -239,8 +249,8 @@ claimed as passed on the Windows build machine.
 
 ```sh
 # Preview, then remove only bridge hook handlers. Existing Herdr hooks survive.
-python3 bridge.py install-hooks --remove
-python3 bridge.py install-hooks --remove --apply
+python3.15 bridge.py install-hooks --remove
+python3.15 bridge.py install-hooks --remove --apply
 ```
 
 Restart Codex after removal. Stop SSH collectors, remove the plugin through
@@ -248,6 +258,16 @@ Options+ or LogiPluginTool, and remove `CodexMxPlugin.link` from the macOS Plugi
 Service Plugins directory if you used `--link`. The source and state directories
 can then be deleted manually if you no longer need them. No LaunchAgent is
 installed automatically and no system settings are changed by the bridge.
+
+For a scripted installation, remove hooks with the installed launcher instead:
+
+```sh
+~/.local/share/codex-mx-bridge/bin/codex-mx install-hooks --remove --apply
+```
+
+Remove the development link and restart Logi Plugin Service before manually
+removing the install/runtime directories. Installer backups are stored beside
+the changed config files, or under the install prefix for a previous plugin.
 
 * Missing data: check the effective `CODEX_HOME`, `/hooks` trust, feature policy,
   and absolute Python/project paths. Restart existing Codex sessions after setup.

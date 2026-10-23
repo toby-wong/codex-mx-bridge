@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.15
 """Build with the real SDK; optional package and development link installation."""
 import argparse
 import os
@@ -34,7 +34,7 @@ def main():
         tool = shutil.which("logiplugintool")
         if not tool:
             p.error("Install LogiPluginTool 6.1.4.22672, and add its tool directory to PATH")
-        output = ROOT/"CodexMx_0_1_0.lplug4"
+        output = ROOT/"CodexMx_0_2_0.lplug4"
         subprocess.run([tool, "pack", str(package), str(output)], check=True)
         subprocess.run([tool, "verify", str(output)], check=True)
         print(output)
