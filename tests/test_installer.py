@@ -179,6 +179,15 @@ class InstallerTests(unittest.TestCase):
             self.assertTrue((Path(link.read_text().strip())/"bin/CodexMxPlugin.dll").exists())
             self.assertFalse(json.loads((prefix/"installation.json").read_text())["hooks_only"])
 
+    def test_pet_setup_is_mac_only_and_dry_run_has_no_downloads(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args = parse_args(["--with-pets", "--dry-run", "--prefix", str(Path(folder)/"install"), "--codex-home", str(Path(folder)/"codex")])
+            with self.assertRaisesRegex(InstallError,"belong on the Mac"):
+                perform(args,platform="linux")
+            with contextlib.redirect_stdout(io.StringIO()):
+                perform(args,platform="darwin",runner=lambda *_a,**_k: self.fail("dry run invoked subprocess"))
+            self.assertEqual(list(Path(folder).iterdir()),[])
+
 
 if __name__ == "__main__":
     unittest.main()

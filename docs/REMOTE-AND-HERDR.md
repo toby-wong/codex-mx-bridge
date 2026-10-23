@@ -85,7 +85,7 @@ to Herdr itself for this bridge transport.
    ~/.local/share/codex-mx-bridge/bin/codex-mx collect-ssh \
      --host workbox --alias linux-desktop \
      --remote-python /home/your-linux-user/.local/share/codex-mx-bridge/venv-3.15/bin/python \
-     --remote-script '/home/your-linux-user/.local/share/codex-mx-bridge/releases/0.2.0-RELEASE_HASH/bridge.py' \
+     --remote-script '/home/your-linux-user/.local/share/codex-mx-bridge/releases/0.3.0-RELEASE_HASH/bridge.py' \
      --once
    ```
 
@@ -95,7 +95,7 @@ to Herdr itself for this bridge transport.
    ~/.local/share/codex-mx-bridge/bin/codex-mx collect-ssh \
      --host workbox --alias linux-desktop \
      --remote-python /home/your-linux-user/.local/share/codex-mx-bridge/venv-3.15/bin/python \
-     --remote-script '/home/your-linux-user/.local/share/codex-mx-bridge/releases/0.2.0-RELEASE_HASH/bridge.py'
+     --remote-script '/home/your-linux-user/.local/share/codex-mx-bridge/releases/0.3.0-RELEASE_HASH/bridge.py'
    ```
 
    Replace the username and `RELEASE_HASH` with the exact paths printed by the

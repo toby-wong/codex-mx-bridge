@@ -3,7 +3,7 @@ name: CodexMx
 displayName: Codex MX Bridge
 description: Local and SSH Codex CLI lifecycle status
 pluginFileName: CodexMxPlugin.dll
-version: 0.2.0
+version: 0.3.0
 author: toby-wong
 copyright: Copyright 2026 toby-wong
 minimumLoupedeckVersion: 6.0

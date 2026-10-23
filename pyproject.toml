@@ -1,6 +1,9 @@
 [project]
 name = "codex-mx-bridge"
-version = "0.2.0"
+version = "0.3.0"
 description = "Codex CLI lifecycle status for Logitech MX Creative Console"
 requires-python = ">=3.15,<3.16"
 dependencies = []
+
+[project.optional-dependencies]
+pets = ["Pillow==13.0.0"]

@@ -33,3 +33,32 @@ if (args.Length > 0)
     Check(ViewModel.Tiles(wire, DateTimeOffset.UtcNow.ToUnixTimeSeconds()).Count > 0, "Python tiles");
 }
 Console.WriteLine($"PASS: {count} view-model checks");
+
+int spriteChecks = 0;
+void SpriteCheck(bool result, string name) { if (!result) throw new Exception(name); spriteChecks++; }
+SpriteCheck(DisplayOptions.Parse("{\"schema_version\":1,\"mode\":\"text\"}").Fps == 4, "default fps");
+SpriteCheck(DisplayOptions.Parse("{\"schema_version\":1,\"mode\":\"pet\",\"pet\":\"buddy/0123456789abcdef\",\"animate\":false}").Animate == false, "still mode");
+foreach (string config in new[] {
+    "{}", "{\"schema_version\":2}", "{\"schema_version\":1,\"mode\":\"pet\"}",
+    "{\"schema_version\":1,\"pet\":\"../../bad\"}", "{\"schema_version\":1,\"fps\":60}" })
+{
+    try { DisplayOptions.Parse(config); throw new Exception("bad display accepted"); }
+    catch (JsonException) { spriteChecks++; }
+}
+SpriteCheck(DisplayPlan.Animation("APPROVAL?") == ("waiting", true), "permission pose");
+SpriteCheck(DisplayPlan.Animation("WORKING") == ("running", true), "work pose");
+SpriteCheck(DisplayPlan.Animation("TURN STOP") == ("review", true), "stop is review, not success");
+SpriteCheck(DisplayPlan.Animation("EXIT ERROR") == ("failed", true), "error pose");
+SpriteCheck(DisplayPlan.Animation("OFFLINE") == ("idle", false), "offline stays still");
+SpriteCheck(DisplayPlan.Frame(6, 4, true, 0.24) == 0 && DisplayPlan.Frame(6, 4, true, 0.25) == 1, "frame pacing");
+SpriteCheck(DisplayPlan.Frame(6, 4, true, 1.5) == 0, "loop wraps");
+SpriteCheck(DisplayPlan.Frame(6, 4, false, 100) == 0, "reduced motion");
+SpriteCheck(DisplayPlan.Frame(6, 4, true, double.NaN) == 0, "invalid time");
+var manifest = new PetManifest { SchemaVersion = 1, FrameWidth = 192, FrameHeight = 208,
+    Animations = new() { ["idle"] = new[] { "idle-0.png" }, ["running"] = new[] { "running-0.png" },
+    ["waiting"] = new[] { "waiting-0.png" }, ["review"] = new[] { "review-0.png" }, ["failed"] = new[] { "failed-0.png" } } };
+SpriteCheck(PetManifest.Parse(JsonSerializer.Serialize(manifest, ViewModel.Json)).Animations.Count == 5, "manifest contract");
+manifest.Animations["idle"] = new[] { "../secret.png" };
+try { PetManifest.Parse(JsonSerializer.Serialize(manifest, ViewModel.Json)); throw new Exception("path traversal accepted"); }
+catch (JsonException) { spriteChecks++; }
+Console.WriteLine($"PASS: {spriteChecks} sprite display checks");

@@ -25,6 +25,11 @@ Usage: bash install.sh [options]
   --python PATH         Use this stable Python 3.15 executable
   --sdk PATH            Override the macOS PluginApi.dll location
   --install-options     Install missing Options+ with an existing Homebrew
+  --with-pets           Install the optional local sprite-sheet importer (Mac)
+  --pet-sheet PATH      Import and enable this PNG/WebP atlas; implies --with-pets
+  --pet-name NAME       Name for the imported pet (default: codex-pet)
+  --pet-layout PATH     Layout JSON for another sprite version
+  --motion on|off       Enable animation or use a still status pose
   --no-downloads        Use only existing Python 3.15 and .NET 8 installations
   --dry-run             Show the plan; no downloads or installation changes
 

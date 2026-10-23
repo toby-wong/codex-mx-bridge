@@ -15,10 +15,12 @@ public sealed class CodexMxPlugin : Plugin
         var token = _stop.Token;
         _poll = Task.Run(async () =>
         {
+            int tick = 0;
             while (!token.IsCancellationRequested)
             {
-                Dashboard.Refresh();
-                try { await Task.Delay(500, token); }
+                if (tick++ % 4 == 0) Dashboard.Refresh();
+                Dashboard.Animate();
+                try { await Task.Delay(125, token); }
                 catch (OperationCanceledException) { break; }
             }
         }, token);
@@ -29,6 +31,7 @@ public sealed class CodexMxPlugin : Plugin
         try { _poll?.Wait(TimeSpan.FromSeconds(2)); } catch (AggregateException) { }
         _stop?.Dispose();
         _stop = null;
+        PetDisplay.Clear();
     }
 }
 
@@ -44,13 +47,16 @@ internal static class Dashboard
     private static List<Tile> _tiles = new();
     private static string _fingerprint = "";
     private static int _page;
+    private static readonly string?[] FrameKeys = new string?[9];
     private static string _focusError = "";
     private static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     public static event Action? Changed;
+    public static event Action<int>? SlotFrameChanged;
     public static string StatePath => Path.Combine(Environment.GetEnvironmentVariable("MX_CODEX_STATE_DIR") ??
         Path.Combine(Home, ".local", "state", "codex-mx-bridge"), "state.json");
     public static void Refresh()
     {
+        bool styleChanged = PetDisplay.Refresh(Path.GetDirectoryName(StatePath)!);
         List<Tile> tiles;
         try
         {
@@ -65,12 +71,24 @@ internal static class Dashboard
         lock (Gate)
         {
             var fingerprint = System.Text.Json.JsonSerializer.Serialize(tiles);
-            if (fingerprint == _fingerprint) return;
+            if (fingerprint == _fingerprint && !styleChanged) return;
             _fingerprint = fingerprint;
             _tiles = tiles;
             _page = ViewModel.WrapPage(_page, _tiles.Count);
         }
         Notify();
+    }
+    public static void Animate()
+    {
+        for (int i = 0; i < 9; i++)
+        {
+            var key = PetDisplay.FrameKey(Get(i));
+            bool changed;
+            lock (Gate) { changed = key != FrameKeys[i]; FrameKeys[i] = key; }
+            if (!changed || key is null) continue;
+            foreach (Action<int> callback in SlotFrameChanged?.GetInvocationList() ?? Array.Empty<Delegate>())
+                try { callback(i); } catch (Exception ex) { Trace.WriteLine(ex.Message); }
+        }
     }
     private static void Notify()
     {
@@ -133,8 +151,9 @@ public sealed class AgentSlotCommand : PluginDynamicCommand
     {
         for (int i = 0; i < 9; i++) AddParameter(i.ToString(), $"Agent slot {i + 1}", "Agents");
     }
-    protected override bool OnLoad() { Dashboard.Changed += Redraw; return true; }
-    protected override bool OnUnload() { Dashboard.Changed -= Redraw; return true; }
+    protected override bool OnLoad() { Dashboard.Changed += Redraw; Dashboard.SlotFrameChanged += RedrawSlot; return true; }
+    protected override bool OnUnload() { Dashboard.Changed -= Redraw; Dashboard.SlotFrameChanged -= RedrawSlot; return true; }
+    private void RedrawSlot(int slot) => ActionImageChanged(slot.ToString());
     private void Redraw() { for (int i = 0; i < 9; i++) ActionImageChanged(i.ToString()); }
     protected override void RunCommand(string actionParameter)
     {
@@ -146,16 +165,11 @@ public sealed class AgentSlotCommand : PluginDynamicCommand
     protected override BitmapImage GetCommandImage(string actionParameter, PluginImageSize imageSize)
     {
         var tile = TileFor(actionParameter);
+        try { var petImage = PetDisplay.Render(tile, imageSize); if (petImage is not null) return petImage; }
+        catch (Exception ex) { Trace.WriteLine($"Pet frame render failed: {ex.Message}"); }
         using var b = new BitmapBuilder(imageSize);
         var status = tile?.Status ?? "";
-        b.Clear(status switch
-        {
-            "APPROVAL?" => new BitmapColor(110, 65, 0),
-            "WORKING" or "TOOL" or "COMPACT" => new BitmapColor(0, 55, 95),
-            "TURN STOP" or "STOPPED" => new BitmapColor(0, 70, 40),
-            "EXIT ERROR" or "READ ERROR" => new BitmapColor(105, 20, 30),
-            _ => new BitmapColor(32, 38, 48)
-        });
+        b.Clear(PetDisplay.Background(status));
         b.DrawText(tile?.Text ?? $"Page {Dashboard.PageText}\nEmpty");
         return b.ToImage();
     }

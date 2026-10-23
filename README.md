@@ -6,12 +6,14 @@ implementation with portable tests and an SDK-validated plugin package; physical
 hardware and macOS integration still need the acceptance checks below.
 
 Repository: [toby-wong/codex-mx-bridge](https://github.com/toby-wong/codex-mx-bridge)
-(private). Version 0.2.0. Documentation verified 24 October 2026.
+(private). Version 0.3.0. Documentation verified 24 October 2026.
 
 ![Illustrative rendering of Codex status keys and dial paging](docs/assets/console-preview.png)
 
 Illustration using simulated agents and the implemented labels/colours. Hardware
 proportions and automatic SDK font rendering may differ; this is not a device photograph.
+The preview shows the default text theme. An optional animated pet theme is
+available; see [pet display setup](docs/PET-DISPLAY.md).
 
 ## What is included
 
@@ -19,6 +21,9 @@ proportions and automatic SDK font rendering may differ; this is not a device ph
   state, optional process launcher, hook installer, SSH collector, and simulator.
 * C# .NET 8 plugin built against the official Logi Actions SDK `PluginApi.dll`.
   Nine slot actions, a page adjustment for the dial, and a next-page button.
+* Optional local pet sprite-sheet import and animated button theme, with status
+  labels, 1–8 requested fps, still poses, and text fallback. Import uses the
+  optional Pillow 13 extra; hooks/SSH remain standard-library-only.
 * Direct iTerm2 pane focus on a button press. Herdr and remote rows deliberately
   have no focus target in this version.
 * Unit/integration tests, a real-CLI offline hook smoke test, and build/pack tools.
@@ -74,7 +79,8 @@ The installer:
 
 1. Uses an existing stable Python 3.15 or obtains a private runtime using pinned
    uv 0.13.5. It does not change your default Python or shell configuration.
-2. Creates `~/.local/share/codex-mx-bridge/venv-3.15` with no pip dependencies.
+2. Creates `~/.local/share/codex-mx-bridge/venv-3.15`; default installation has no
+   pip dependencies. `--with-pets` adds the optional Pillow importer.
 3. Stages a versioned source release and runs an isolated hook self-check.
 4. On Mac, uses the real Options+ SDK; obtains a private .NET 8 SDK if needed,
    builds the plugin, and creates its development link. An existing verified
@@ -128,10 +134,34 @@ consent may be required. Herdr/remote pane focus is not implemented; status work
 without focus permission. See `~/.local/state/codex-mx-bridge/focus-status.txt`.
 
 Manual alternative: use `python3.15 bridge.py install-hooks --apply`, review
-`/hooks`, and install `dist/CodexMx_0_2_0.lplug4` from the ZIP by double-clicking.
+`/hooks`, and install `dist/CodexMx_0_3_0.lplug4` from the ZIP by double-clicking.
 Do not install that package alongside the source installer's development link.
 The standalone hook command does not edit `config.toml`; the full installer does
 so only when needed to enable explicitly disabled hooks.
+
+## Optional animated pet buttons
+
+From the updated project folder on the Mac, provide a local Codex/ChatGPT pet sheet:
+
+```sh
+bash install.sh --with-pets --pet-sheet "$HOME/Downloads/my-pet.png" --pet-name buddy
+```
+
+The pet theme animates work/wait/review/error poses and retains exact status
+labels. Default requested rate is 4 fps; motion can be disabled. Switch themes
+without a rebuild after installing this plugin version:
+
+```sh
+~/.local/share/codex-mx-bridge/bin/codex-mx display --motion off
+~/.local/share/codex-mx-bridge/bin/codex-mx display --mode text
+~/.local/share/codex-mx-bridge/bin/codex-mx display --mode pet --pet buddy --fps 4
+```
+
+No pet artwork is bundled or automatically extracted from the app. Supply a
+compatible PNG/WebP sheet; built-in/app versions with different layouts need
+an explicit layout file. The bridge does not follow the app's current pet.
+See [formats, status mapping, import commands, and limits](docs/PET-DISPLAY.md).
+Linux requires no additional dependency for this Mac display option.
 
 ## Status meanings
 

@@ -10,17 +10,27 @@ the remote hook writer and export side.
 
 | Check | Observed result |
 | --- | --- |
-| `python3.15 scripts/test_all.py` | 38 Python tests and 16 C# view-model/contract checks passed |
+| `python3.15 scripts/test_all.py` with Pillow 13.0.0 | 52 Python tests, 16 C# view-model/contract checks, and 18 sprite display checks passed |
 | `python3.15 tests/codex_hook_smoke.py` | Real CLI emitted SessionStart, UserPromptSubmit, Stop, SessionEnd; bridge state updated |
 | `python3.15 scripts/build_plugin.py --sdk <real PluginApi.dll>` | Build succeeded, 0 warnings, 0 errors |
-| `logiplugintool pack plugin/bin/Release/package CodexMx_0_2_0.lplug4` | Passed |
-| `logiplugintool verify CodexMx_0_2_0.lplug4` | Passed |
+| `logiplugintool pack plugin/bin/Release/package CodexMx_0_3_0.lplug4` | Passed |
+| `logiplugintool verify CodexMx_0_3_0.lplug4` | Passed |
 | `bash -n install.sh` | Shell syntax check passed |
 
 The original 0.1.0 validation used Python 3.11.15. Version 0.2.0 was retested on
 stable 3.15.1 and now pins Python 3.15 in metadata, runtime checks, installer, and
 the CI template. CPython was downloaded with a private uv 0.13.5 installation;
 the user's existing Python/uv installation was not changed.
+
+Version 0.3.0 adds optional Pillow 13.0.0 importer coverage on stable Python
+3.15.1. Tests use transparent geometry fixtures, not redistributed Codex pet art.
+They exercise v1/v2 standard row extraction, explicit alternate layouts,
+alpha/registration, blank/opaque/oversize rejection, selection, motion-off,
+safe paths and corrupt configuration recovery. C# checks cover status mapping,
+bounded timing, loop wrap, still stale/offline, and manifest/path validation.
+The renderer is compiled against the real SDK; native image decoding and LCD
+motion still require the host/hardware. Core CLI smoke also runs without Pillow
+to verify that the optional importer does not affect hooks.
 
 Installer coverage executes the real isolated Python 3.15 venv and hook check
 in temporary directories. It verifies repeated installation, spaced paths,

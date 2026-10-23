@@ -90,6 +90,12 @@ user to assign in Options+, not a replacement device profile. No haptics,
 marketplace submission, hardware reverse engineering, or Node SDK dependency
 is required. No claim that the Node SDK is Windows-only is made.
 
+The optional [pet display](PET-DISPLAY.md) uses the same documented image/redraw
+API, with cached PNG frames and bounded local animation ticks. It does not use
+an animated-image or pet API in Logitech. Local sheet import (Pillow 13) is
+separate from hook/SSH delivery. No desktop pet export or selected-pet state API
+was verified; compatible local v1/v2 sheets or an explicit layout are required.
+
 ## iTerm2
 
 Focus uses the documented AppleScript session `unique id`/`tty` and session,

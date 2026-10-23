@@ -128,6 +128,11 @@ def parse_args(argv=None):
     p.add_argument("--dry-run", action="store_true", help="Plan only; no downloads or install changes")
     p.add_argument("--no-downloads", action="store_true")
     p.add_argument("--install-options", action="store_true")
+    p.add_argument("--with-pets", action="store_true", help="Install optional Pillow 13 sprite importer (Mac only)")
+    p.add_argument("--pet-sheet", type=Path, help="Import and enable this local pet atlas; implies --with-pets")
+    p.add_argument("--pet-name", default="codex-pet")
+    p.add_argument("--pet-layout", type=Path, help="Explicit layout JSON for a different sprite-sheet version")
+    p.add_argument("--motion", choices=("on", "off"))
     p.add_argument("--sdk", type=Path, default=Path("/Applications/Utilities/LogiPluginService.app/Contents/MonoBundle/PluginApi.dll"))
     return p.parse_args(argv)
 
@@ -175,6 +180,12 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
     if platform not in {"darwin", "linux"}:
         raise InstallError("Run the installer on macOS or Linux")
     hooks_only = args.hooks_only or platform == "linux"
+    with_pets = args.with_pets or args.pet_sheet is not None
+    if hooks_only and (with_pets or args.motion is not None):
+        raise InstallError("Pet assets/display belong on the Mac; Linux needs only hooks/export")
+    if args.pet_sheet and (not args.pet_sheet.expanduser().is_file() or
+                           not 0 < args.pet_sheet.expanduser().stat().st_size <= 20*1024*1024):
+        raise InstallError("--pet-sheet must name an existing PNG/WebP atlas up to 20 MiB")
     prefix = args.prefix.expanduser().resolve()
     codex_home = args.codex_home.expanduser().resolve()
     if prefix in {Path(prefix.anchor), Path.home().resolve()} or prefix == root or prefix in root.parents:
@@ -193,6 +204,8 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
         print("Plan: stage source; create Python 3.15 venv; self-check; back up/merge hooks; enable hooks if disabled; write launcher.")
         if not hooks_only:
             print("Plan: locate Options+ SDK; obtain .NET 8 if needed; build plugin; back up/write development link.")
+        if with_pets:
+            print("Plan: install optional Pillow 13; import/enable the supplied local sheet if specified.")
         print("No changes made. Hook trust and device assignments remain manual.")
         return 0
     if not which("codex"):
@@ -211,6 +224,23 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
     if not python.is_file():
         runner([sys.executable, "-m", "venv", "--without-pip", str(venv)], check=True)
     runner([str(python), "-c", "import sys; assert sys.version_info[:2] == (3,15) and sys.version_info.releaselevel == 'final'"], check=True)
+    pet_id = None
+    if with_pets:
+        check = runner([str(python), "-c", "import PIL; assert PIL.__version__ == '13.0.0'"], capture_output=True, check=False)
+        if check.returncode:
+            if args.no_downloads:
+                raise InstallError("Pillow 13.0.0 is missing from the installed venv; --no-downloads prevents installing it")
+            runner([str(python), "-m", "ensurepip", "--upgrade"], check=True)
+            runner([str(python), "-m", "pip", "install", "--only-binary=:all:", "Pillow==13.0.0"], check=True)
+        if args.pet_sheet:
+            cmd = [str(python), str(release/"bridge.py"), "pet", "import", "--sheet", str(args.pet_sheet.expanduser().resolve()), "--name", args.pet_name]
+            if args.pet_layout:
+                cmd += ["--layout", str(args.pet_layout.expanduser().resolve())]
+            try:
+                result = runner(cmd, capture_output=True, text=True, check=True)
+            except subprocess.CalledProcessError as exc:
+                raise InstallError("Pet import failed: " + str(exc.stderr or exc)[-1500:]) from exc
+            pet_id = json.loads(result.stdout)["pet"]
     # Use a separate state directory, never overwrite existing live agent rows.
     with tempfile.TemporaryDirectory(prefix="mx-install-check-") as folder:
         payload = json.dumps(dict(session_id="install-check", hook_event_name="SessionStart", cwd="/install/check"))
@@ -241,6 +271,13 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
     # Apply only after runtime, self-check, and plugin build have passed.
     enable_hooks(config)
     install(hooks, definition(release/"bridge.py", str(python)), apply=True)
+    if pet_id is not None or args.motion is not None:
+        cmd = [str(python), str(release/"bridge.py"), "display"]
+        if pet_id is not None:
+            cmd += ["--mode", "pet", "--pet", pet_id]
+        if args.motion is not None:
+            cmd += ["--motion", args.motion]
+        runner(cmd, check=True)
     bin_dir = prefix/"bin"
     bin_dir.mkdir(exist_ok=True)
     launcher = bin_dir/"codex-mx"

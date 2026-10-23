@@ -112,6 +112,18 @@ def main(argv=None):
     p = sub.add_parser("clear", help="Remove historical local rows, or one remote source")
     p.add_argument("--remote")
     p = sub.add_parser("demo", help="Write an isolated synthetic snapshot")
+    p = sub.add_parser("display", help="Inspect/change local button theme; no restart needed")
+    p.add_argument("--mode", choices=("text", "pet"))
+    p.add_argument("--pet", help="Imported name or full revision ID")
+    p.add_argument("--fps", type=int, choices=range(1,9))
+    p.add_argument("--motion", choices=("on", "off"))
+    p = sub.add_parser("pet", help="Local sprite-sheet assets for this bridge")
+    pets = p.add_subparsers(dest="pet_action", required=True)
+    pets.add_parser("list")
+    p = pets.add_parser("import")
+    p.add_argument("--sheet", type=Path, required=True)
+    p.add_argument("--name", required=True)
+    p.add_argument("--layout", type=Path, help="Explicit atlas layout for another sprite version")
     args = parser.parse_args(argv)
     if args.action == "install-hooks":
         result = install(args.codex_home / "hooks.json", {} if args.remove else
@@ -127,6 +139,22 @@ def main(argv=None):
             print("{}")
             return 0
     store = Store(args.state_dir)
+    if args.action in {"display", "pet"}:
+        from . import pets
+        try:
+            if args.action == "display":
+                if any(v is not None for v in (args.mode, args.pet, args.fps, args.motion)):
+                    result = pets.configure(store.directory, mode=args.mode, pet=args.pet, fps=args.fps, motion=args.motion)
+                else:
+                    result = pets.read_display(store.directory)
+            elif args.pet_action == "list":
+                result = pets.list_pets(store.directory)
+            else:
+                result = dict(pet=pets.import_pet(store.directory, args.sheet, args.name, args.layout))
+            print(json.dumps(result, indent=2))
+            return 0
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
     if args.action == "run":
         return launch(store, args.command, args.label)
     if args.action == "export":
