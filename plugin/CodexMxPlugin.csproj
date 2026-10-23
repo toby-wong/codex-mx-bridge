@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Loupedeck.CodexMxPlugin</RootNamespace>
+    <AssemblyName>CodexMxPlugin</AssemblyName>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin/$(Configuration)/package/bin/</OutputPath>
+    <PluginApiPath Condition="'$(PluginApiPath)' == ''">/Applications/Utilities/LogiPluginService.app/Contents/MonoBundle/PluginApi.dll</PluginApiPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="PluginApi">
+      <HintPath>$(PluginApiPath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <None Include="package/**/*" CopyToOutputDirectory="Never" />
+  </ItemGroup>
+  <Target Name="CheckSdk" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(PluginApiPath)')" Text="Install Logi Options+ or set -p:PluginApiPath=/absolute/path/PluginApi.dll. No mock SDK is substituted." />
+  </Target>
+  <Target Name="CopyPackage" AfterTargets="Build">
+    <ItemGroup><PackageFiles Include="package/**/*" /></ItemGroup>
+    <Copy SourceFiles="@(PackageFiles)" DestinationFolder="$(OutputPath)../%(RecursiveDir)" />
+  </Target>
+</Project>

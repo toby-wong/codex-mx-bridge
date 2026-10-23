@@ -1,0 +1,166 @@
+import argparse
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+import uuid
+from .install import definition, install
+from .ssh import collect_once, command
+from .state import Store, apply_event, export_snapshot, run_start, run_update
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def hook(store):
+    # Hooks always succeed silently. Stop/SubagentStop get valid JSON, never prose.
+    try:
+        raw = sys.stdin.buffer.read(2 * 1024 * 1024 + 1)
+        if len(raw) > 2 * 1024 * 1024:
+            raise ValueError("Oversize hook payload")
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            raise ValueError("Hook input must be an object")
+        with store.transaction() as state:
+            apply_event(state, payload)
+    except Exception:
+        # Do not disclose prompts, tool args, or transcript content on error.
+        try:
+            (store.directory / "hook-error.txt").write_text(
+                "Bridge hook failed; inspect directory permissions, lock, and state.json.\n",
+                encoding="utf-8")
+        except OSError:
+            pass
+    print("{}")
+    return 0
+
+
+def launch(store, argv, label):
+    if argv and argv[0] == "--":
+        argv = argv[1:]
+    if not argv:
+        argv = ["codex"]
+    env = dict(os.environ, MX_CODEX_RUN_ID=str(uuid.uuid4()),
+               MX_CODEX_STATE_DIR=str(store.directory.resolve()))
+    if label:
+        env["MX_CODEX_LABEL"] = label
+    try:
+        env["MX_CODEX_TTY"] = os.ttyname(0)
+    except (OSError, AttributeError):
+        pass
+    rid = env["MX_CODEX_RUN_ID"]
+    with store.transaction() as state:
+        run_start(state, rid, label or Path.cwd().name, env, time.time())
+    child = None
+    old_handlers = {}
+    try:
+        child = subprocess.Popen(argv, env=env)  # inherit all three terminal streams
+        if os.name == "posix":
+            # SIGINT reaches Codex directly via the terminal process group.
+            old_handlers[signal.SIGINT] = signal.signal(signal.SIGINT, lambda *_: None)
+            # Forward non-terminal termination to the child; still wait/reap it.
+            for sig in (signal.SIGTERM, signal.SIGHUP):
+                old_handlers[sig] = signal.signal(sig, lambda s, _f: child.send_signal(s))
+        while child.poll() is None:
+            try:
+                child.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                try:
+                    with store.transaction() as state:
+                        run_update(state, rid, time.time())
+                except (OSError, ValueError, TimeoutError):
+                    pass  # a display failure must not kill Codex
+        code = child.returncode
+    except OSError as exc:
+        print(f"Cannot start agent: {exc}", file=sys.stderr)
+        code = 127
+    finally:
+        for sig, handler in old_handlers.items():
+            signal.signal(sig, handler)
+    try:
+        with store.transaction() as state:
+            run_update(state, rid, time.time(), code)
+    except (OSError, ValueError, TimeoutError):
+        pass
+    return code if code >= 0 else 128 - code
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Codex CLI to Logi Actions SDK bridge")
+    parser.add_argument("--state-dir", type=Path, help="Override state directory")
+    sub = parser.add_subparsers(dest="action", required=True)
+    sub.add_parser("hook", help="Codex command hook, JSON on stdin")
+    sub.add_parser("export", help="Emit local-only sanitized snapshot for SSH")
+    sub.add_parser("status", help="Inspect raw bridge state")
+    p = sub.add_parser("install-hooks", help="Preview or merge hooks; preserves Herdr")
+    p.add_argument("--apply", action="store_true")
+    p.add_argument("--remove", action="store_true")
+    p.add_argument("--codex-home", type=Path, default=Path(os.environ.get("CODEX_HOME", Path.home()/".codex")))
+    p = sub.add_parser("run", help="Optional process heartbeat and exit tracking")
+    p.add_argument("--label")
+    p.add_argument("command", nargs=argparse.REMAINDER)
+    p = sub.add_parser("collect-ssh", help="Collect Linux status over existing SSH trust")
+    p.add_argument("--host", required=True, help="SSH config alias")
+    p.add_argument("--alias", required=True, help="Unique display/source label")
+    p.add_argument("--remote-script", required=True, help="Absolute Linux bridge.py path")
+    p.add_argument("--remote-python", default="python3")
+    p.add_argument("--remote-state")
+    p.add_argument("--interval", type=float, default=3)
+    p.add_argument("--once", action="store_true")
+    p = sub.add_parser("clear", help="Remove historical local rows, or one remote source")
+    p.add_argument("--remote")
+    p = sub.add_parser("demo", help="Write an isolated synthetic snapshot")
+    args = parser.parse_args(argv)
+    if args.action == "install-hooks":
+        result = install(args.codex_home / "hooks.json", {} if args.remove else
+                         definition(ROOT / "bridge.py"), args.apply)
+        print(json.dumps(result, indent=2))
+        if args.apply:
+            print("Merged. Restart Codex, then review and trust entries in /hooks.", file=sys.stderr)
+        return 0
+    if args.action == "hook":
+        try:
+            return hook(Store(args.state_dir))
+        except Exception:
+            print("{}")
+            return 0
+    store = Store(args.state_dir)
+    if args.action == "run":
+        return launch(store, args.command, args.label)
+    if args.action == "export":
+        print(json.dumps(export_snapshot(store.read())))
+    elif args.action == "status":
+        print(json.dumps(store.read(), indent=2))
+    elif args.action == "collect-ssh":
+        if args.interval < 1 or args.interval > 60:
+            parser.error("--interval must be between 1 and 60 seconds")
+        cmd = command(args.host, args.remote_script, args.remote_python, args.remote_state)
+        while True:
+            ok = collect_once(store, args.alias, cmd)
+            if args.once:
+                return 0 if ok else 1
+            if not ok:
+                print(f"{args.alias}: connection failed; cached rows marked OFFLINE", file=sys.stderr)
+            try:
+                time.sleep(args.interval)
+            except KeyboardInterrupt:
+                return 0
+    elif args.action == "clear":
+        with store.transaction() as state:
+            if args.remote:
+                state["remotes"].pop(args.remote, None)
+            else:
+                state["rows"] = [r for r in state["rows"] if
+                    r["status"] not in {"CLOSED", "EXIT ERROR", "STOPPED"} and
+                    time.time() <= r["valid_until"]]
+    elif args.action == "demo":
+        if args.state_dir is None:
+            parser.error("demo requires --state-dir pointing to a separate test directory")
+        with store.transaction() as state:
+            for i, event in enumerate(("UserPromptSubmit", "PermissionRequest", "Stop")):
+                payload = dict(session_id=f"demo-{i}", cwd=f"/demo/project-{i}",
+                               hook_event_name=event, turn_id="demo-turn")
+                apply_event(state, payload, env={})
+    return 0
