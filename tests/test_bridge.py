@@ -103,6 +103,16 @@ class StateTests(unittest.TestCase):
         self.event("SessionEnd")
         self.assertEqual(export_snapshot(self.state, now=100000)["rows"][0]["status"], "CLOSED")
 
+    def test_resume_refreshes_attachment_and_clears_old_launcher(self):
+        payload = dict(session_id="s", hook_event_name="SessionStart")
+        apply_event(self.state, payload, {"ITERM_SESSION_ID":"old", "MX_CODEX_RUN_ID":"old-run"}, 100)
+        apply_event(self.state, dict(payload, source="resume"), {"ITERM_SESSION_ID":"new"}, 101)
+        row = self.state["rows"][0]
+        self.assertEqual((row["iterm_id"], row["run_id"]), ("new", ""))
+        apply_event(self.state, dict(payload, source="resume"), {"HERDR_ENV":"1"}, 102)
+        self.assertEqual(row["iterm_id"], "")
+        self.assertTrue(row["herdr"])
+
 
 class FileTests(unittest.TestCase):
     def test_atomic_roundtrip_and_revision(self):

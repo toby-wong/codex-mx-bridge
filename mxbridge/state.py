@@ -155,6 +155,13 @@ def apply_event(state, payload, env=None, now=None):
             return False
     if event == "SessionStart" and payload.get("source") == "compact":
         status = row["status"]
+    if event == "SessionStart":
+        # Resume/fork can attach the same Codex identity to a different terminal.
+        # Never keep a previous attachment's iTerm target or launcher identity.
+        can_focus = env.get("HERDR_ENV") != "1" and not env.get("SSH_CONNECTION")
+        row.update(run_id=run_id, herdr=env.get("HERDR_ENV") == "1",
+                   iterm_id=clean(env.get("ITERM_SESSION_ID"), 256) if can_focus else "",
+                   tty=clean(env.get("MX_CODEX_TTY"), 128) if can_focus else "")
     row.update(status=status, last_event=event, updated_at=now,
                valid_until=now + (45 if run_id else 900))
     if run_id:

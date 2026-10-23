@@ -6,7 +6,7 @@ on run argv
         repeat with win in windows
             repeat with tabRef in tabs of win
                 repeat with sess in sessions of tabRef
-                    if (targetId is not "" and (unique id of sess) is targetId) or (targetTty is not "" and (tty of sess) is targetTty) then
+                    if (targetId is not "" and (unique id of sess) is targetId) or (targetId is "" and targetTty is not "" and (tty of sess) is targetTty) then
                         select win
                         select tabRef
                         select sess
