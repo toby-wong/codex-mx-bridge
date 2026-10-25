@@ -16,6 +16,7 @@ public sealed class Row
     public string HerdrSocket { get; set; } = "";
     public long Order { get; set; }
     public double UpdatedAt { get; set; }
+    public double? CreatedAt { get; set; }
     public double ValidUntil { get; set; }
     public bool Herdr { get; set; }
 }
@@ -62,29 +63,54 @@ public static class ViewModel
         return state;
     }
 
-    public static List<Tile> Tiles(State state, double now)
+    public static List<Tile> Tiles(State state, double now, string chatView = "paged")
     {
-        var list = new List<Tile>();
+        var list = new List<(Tile Tile, Row? Row, string Source)>();
         string Status(Row r) => !Final.Contains(r.Status) && now > r.ValidUntil ? "STALE" : r.Status;
         foreach (var r in state.Rows.OrderBy(r => r.Order))
-            list.Add(new(r.Key, Short(r.Name), Status(r), "local", r.Herdr ? "" : r.ItermId,
+            list.Add((new(r.Key, Short(r.Name), Status(r), "local", r.Herdr ? "" : r.ItermId,
                          r.Herdr ? "" : r.Tty, r.Kind, r.Herdr, r.SessionId,
-                         r.Herdr ? r.HerdrSocket : "", r.Client));
+                         r.Herdr ? r.HerdrSocket : "", r.Client), r, "local"));
         foreach (var (host, remote) in state.Remotes.OrderBy(p => p.Key, StringComparer.Ordinal))
         {
             bool offline = remote.Error.Length > 0 || now > remote.ReceivedAt + 15;
             if (remote.Rows.Count == 0 && offline)
-                list.Add(new("remote/" + host, "SSH", "OFFLINE", Short(host)));
+                list.Add((new("remote/" + host, "SSH", "OFFLINE", Short(host)), null, host));
             foreach (var r in remote.Rows.OrderBy(r => r.Order))
-                list.Add(new("remote/" + host + "/" + r.Key, Short(r.Name),
-                    offline ? "OFFLINE" : Status(r), Short(host), Kind: r.Kind, Client: r.Client));
+                list.Add((new("remote/" + host + "/" + r.Key, Short(r.Name),
+                    offline ? "OFFLINE" : Status(r), Short(host), Kind: r.Kind, Client: r.Client), r, host));
         }
         if (state.DroppedRows > 0)
-            list.Add(new("overflow", "History cap", "PRUNED " + state.DroppedRows, "bridge"));
-        return list;
+            list.Add((new("overflow", "History cap", "PRUNED " + state.DroppedRows, "bridge"), null, "bridge"));
+        if (chatView == "paged") return list.Select(c => c.Tile).ToList();
+        if (chatView is not ("recent" or "recent_open" or "newest"))
+            throw new ArgumentException("Unknown chat view", nameof(chatView));
+
+        var chats = list.Where(c => c.Row is not null &&
+            (chatView != "recent_open" || !Final.Contains(c.Row.Status)));
+        // Activity and creation are separate: a resumed old chat is not new.
+        // Old rows without creation times follow dated rows, grouped by source
+        // and newest registration first; activity is never used as a fake start.
+        var ordered = chatView == "newest"
+            ? chats.OrderByDescending(c => c.Row!.CreatedAt ?? double.NegativeInfinity)
+                   .ThenBy(c => c.Source, StringComparer.Ordinal)
+                   .ThenByDescending(c => c.Row!.Order)
+                   .ThenBy(c => c.Tile.Key, StringComparer.Ordinal)
+            : chats.OrderByDescending(c => c.Row!.UpdatedAt)
+                   .ThenBy(c => c.Tile.Key, StringComparer.Ordinal);
+        // Diagnostics can fill unused positions but do not evict recent chats.
+        return ordered.Select(c => c.Tile).Concat(list.Where(c => c.Row is null).Select(c => c.Tile))
+                      .Take(9).ToList();
     }
 
     public static string Short(string text) => new(text.Where(c => !char.IsControl(c)).Take(18).ToArray());
     public static int PageCount(int count) => Math.Max(1, (count + 8) / 9);
     public static int WrapPage(int page, int count) => ((page % PageCount(count)) + PageCount(count)) % PageCount(count);
+}
+
+public sealed class ButtonTargets
+{
+    private readonly Tile?[] _displayed = new Tile?[9];
+    public Tile? Get(int slot) => Volatile.Read(ref _displayed[slot]);
+    public void Displayed(int slot, Tile? tile) => Volatile.Write(ref _displayed[slot], tile);
 }

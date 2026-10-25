@@ -48,9 +48,15 @@ def decode(raw, now, elapsed=0):
         ttl, age = float(item.get("valid_until", 0)), float(item.get("updated_at", 0))
         if not math.isfinite(ttl) or not math.isfinite(age) or ttl < 0 or age < 0:
             raise ValueError("Invalid remote timing")
+        created_age = item.get("created_at")
+        if created_age is not None and (type(created_age) not in (int, float) or
+                not math.isfinite(created_age) or created_age < 0):
+            raise ValueError("Invalid remote creation age")
         row.update(order=i, iterm_id="", tty="", herdr_socket="", run_id="", agent_id="", turn_id="",
                    herdr=bool(item.get("herdr")), updated_at=now - age - elapsed,
                    valid_until=now + max(0, min(ttl, 900) - elapsed))
+        if created_age is not None:
+            row["created_at"] = now - created_age - elapsed
         result.append(row)
     return result
 

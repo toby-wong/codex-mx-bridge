@@ -113,6 +113,24 @@ class StateTests(unittest.TestCase):
         self.assertEqual(row["iterm_id"], "")
         self.assertTrue(row["herdr"])
 
+    def test_creation_time_survives_resume_activity_and_heartbeat(self):
+        payload = dict(session_id="s", hook_event_name="SessionStart")
+        env = {"MX_CODEX_RUN_ID": "run"}
+        apply_event(self.state, payload, env, 100)
+        apply_event(self.state, dict(payload, source="resume"), env, 200)
+        apply_event(self.state, dict(payload, hook_event_name="UserPromptSubmit"), env, 300)
+        run_update(self.state, "run", 400)
+        row = self.state["rows"][0]
+        self.assertEqual((row["created_at"], row["updated_at"]), (100, 300))
+        self.assertEqual(row["valid_until"], 445)
+
+    def test_legacy_row_updates_do_not_invent_creation_time(self):
+        self.event("SessionStart")
+        self.state["rows"][0].pop("created_at")
+        self.event("UserPromptSubmit")
+        self.assertNotIn("created_at", self.state["rows"][0])
+        self.assertNotIn("created_at", export_snapshot(self.state, 200)["rows"][0])
+
 
 class FileTests(unittest.TestCase):
     def test_atomic_roundtrip_and_revision(self):
@@ -209,7 +227,26 @@ class SshTests(unittest.TestCase):
         row = decode(json.dumps(data), now=10000, elapsed=2)[0]
         self.assertEqual(row["valid_until"], 10897)
         self.assertEqual(row["updated_at"], 9997)
+        self.assertEqual(row["created_at"], 9997)
         self.assertEqual(row["iterm_id"], "")
+
+    def test_remote_creation_uses_age_and_supports_old_exporters(self):
+        state = empty()
+        apply_event(state, dict(session_id="s", hook_event_name="SessionStart"), {}, 100)
+        apply_event(state, dict(session_id="s", hook_event_name="UserPromptSubmit"), {}, 500)
+        data = export_snapshot(state, 600)
+        self.assertEqual(data["rows"][0]["created_at"], 500)
+        row = decode(json.dumps(data), now=10000, elapsed=2)[0]
+        self.assertEqual((row["created_at"], row["updated_at"]), (9498, 9898))
+        data["rows"][0].pop("created_at")
+        self.assertNotIn("created_at", decode(json.dumps(data), now=10000)[0])
+
+    def test_invalid_remote_creation_age_is_rejected(self):
+        for age in (-1, float("nan"), float("inf"), "yesterday", {}, True):
+            data = json.loads(self.fixture())
+            data["rows"][0]["created_at"] = age
+            with self.subTest(age=age), self.assertRaises(ValueError):
+                decode(json.dumps(data), 10000)
 
     def test_rejects_invalid_schema_size_and_nan(self):
         for raw in (b"x" * (1024*1024+1), b'{"schema_version":2}',

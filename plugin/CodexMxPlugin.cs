@@ -63,7 +63,8 @@ internal static class Dashboard
         {
             var file = new FileInfo(StatePath);
             if (file.Length > 4 * 1024 * 1024) throw new InvalidDataException("Oversize state");
-            tiles = ViewModel.Tiles(ViewModel.Parse(File.ReadAllText(StatePath)), DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0);
+            tiles = ViewModel.Tiles(ViewModel.Parse(File.ReadAllText(StatePath)),
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0, PetDisplay.ChatView);
         }
         catch (FileNotFoundException) { tiles = new() { new("missing", "Install hooks", "NO DATA", "bridge") }; }
         catch (DirectoryNotFoundException) { tiles = new() { new("missing", "Install hooks", "NO DATA", "bridge") }; }
@@ -192,6 +193,7 @@ internal static class Dashboard
 
 public sealed class AgentSlotCommand : PluginDynamicCommand
 {
+    private readonly ButtonTargets _targets = new();
     public AgentSlotCommand()
     {
         // The live image already contains the labels; use the full button surface.
@@ -204,7 +206,9 @@ public sealed class AgentSlotCommand : PluginDynamicCommand
     private void Redraw() { for (int i = 0; i < 9; i++) ActionImageChanged(i.ToString()); }
     protected override void RunCommand(string actionParameter)
     {
-        if (int.TryParse(actionParameter, out int slot) && slot is >= 0 and < 9) Dashboard.Focus(Dashboard.Get(slot));
+        // Recency can reorder Dashboard before the SDK asks for a new image.
+        // Focus the identity used for this button's last completed render.
+        if (int.TryParse(actionParameter, out int slot) && slot is >= 0 and < 9) Dashboard.Focus(_targets.Get(slot));
     }
     protected override string GetCommandDisplayName(string actionParameter, PluginImageSize imageSize)
         => TileFor(actionParameter) is { } tile ? PetDisplay.Labels(tile).Text : $"{Dashboard.PageText}\nEmpty";
@@ -212,14 +216,20 @@ public sealed class AgentSlotCommand : PluginDynamicCommand
     protected override BitmapImage GetCommandImage(string actionParameter, PluginImageSize imageSize)
     {
         var tile = TileFor(actionParameter);
-        try { var petImage = PetDisplay.Render(tile, imageSize); if (petImage is not null) return petImage; }
+        BitmapImage Remember(BitmapImage image)
+        {
+            if (int.TryParse(actionParameter, out int slot) && slot is >= 0 and < 9)
+                _targets.Displayed(slot, tile);
+            return image;
+        }
+        try { var petImage = PetDisplay.Render(tile, imageSize); if (petImage is not null) return Remember(petImage); }
         catch (Exception ex) { PetDisplay.ReportRenderError(ex); }
         using var b = new BitmapBuilder(imageSize);
         var status = tile?.Status ?? "";
         b.Clear(PetDisplay.Background(status));
         string text = tile is null ? $"Page {Dashboard.PageText}\nEmpty" : PetDisplay.Labels(tile).Text;
         if (text.Length > 0) b.DrawText(text);
-        return b.ToImage();
+        return Remember(b.ToImage());
     }
 }
 

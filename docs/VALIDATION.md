@@ -2,6 +2,31 @@
 
 Latest validation: 25 October 2026, Australia/Sydney.
 
+## Recent chat views — 25 October 2026
+
+* 118 Python tests passed, including creation-time persistence across resume
+  and heartbeat, relative creation ages over SSH, old exporter compatibility,
+  invalid remote timing, and all four config values.
+* 211 C# checks passed: 27 view-model/contract, 19 sprite, 24 configurable label,
+  27 chat view, 108 Herdr focus and 6 socket checks.
+* The real SDK release build passed with zero warnings/errors.
+  `LogiPluginTool` 6.1.4.22672 packed and verified the `.lplug4`.
+
+The new view tests use more than nine rows and cover combined local/remote
+ordering, finished versus ended-turn filtering, missing creation timestamps,
+stable tie handling, diagnostic slots and preservation of source isolation.
+A simulated reorder verifies that button focus retains the last rendered
+chat identity until the next button image is rendered.
+
+Installed release `0.3.0-dde662ecc3dd` using the updater. The running plugin
+accepted `recent`, `recent_open`, `newest`, and the restored `paged` setting
+in 0.836, 0.489, 0.572 and 0.474 seconds respectively, including CLI invocation.
+The service PID remained unchanged across all four changes. The selected pet,
+motion and caption settings were preserved, and a new 116 × 116 pet draw was
+recorded after the restart. The local receipt is
+`~/.local/share/codex-mx-bridge/backups/chat-view-reload-verification-2026-10-25.json`.
+Physical ordering, paging and focus acceptance still need device observation.
+
 ## Legacy Herdr rows and configurable labels — 25 October 2026
 
 | Check | Observed result |

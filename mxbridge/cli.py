@@ -164,6 +164,8 @@ def main(argv=None):
     p.add_argument("--pet", help="Imported name or full revision ID")
     p.add_argument("--fps", type=int, choices=range(1,9))
     p.add_argument("--motion", choices=("on", "off"))
+    p.add_argument("--chat-view", choices=("paged", "recent", "recent_open", "newest"),
+                   help="All pages, latest activity, latest unfinished activity, or newest chats")
     for flag in ("show-name", "show-location", "show-client", "show-status", "use-chat-names"):
         p.add_argument("--" + flag, choices=("on", "off"))
     p = sub.add_parser("pet", help="Local sprite-sheet assets for this bridge")
@@ -230,9 +232,10 @@ def main(argv=None):
             if args.action == "display":
                 labels = {key: None if getattr(args, key) is None else getattr(args, key) == "on"
                           for key in ("show_name", "show_location", "show_client", "show_status", "use_chat_names")}
-                if any(v is not None for v in (args.mode, args.pet, args.fps, args.motion, *labels.values())):
+                if any(v is not None for v in (args.mode, args.pet, args.fps, args.motion,
+                                               args.chat_view, *labels.values())):
                     result = pets.configure(store.directory, mode=args.mode, pet=args.pet, fps=args.fps,
-                                            motion=args.motion, **labels)
+                                            motion=args.motion, chat_view=args.chat_view, **labels)
                 else:
                     result = pets.read_display(store.directory)
             elif args.pet_action == "list":

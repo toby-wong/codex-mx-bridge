@@ -76,6 +76,26 @@ class DisplayConfigTests(unittest.TestCase):
             self.assertTrue(value["use_chat_names"])
             self.assertFalse((Path(folder)/"state.json").exists())
 
+    def test_chat_view_options_preserve_other_settings_and_agent_history(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/"state.json"
+            path.write_text('{"untouched":true}')
+            configure(folder, show_status=False, fps=2)
+            for view in ("paged", "recent", "recent_open", "newest"):
+                result = subprocess.run([sys.executable, str(ROOT/"bridge.py"), "--state-dir", folder,
+                    "display", "--chat-view", view], capture_output=True, text=True, check=True)
+                value = json.loads(result.stdout)
+                self.assertEqual(value["chat_view"], view)
+                self.assertFalse(value["show_status"])
+                self.assertEqual(value["fps"], 2)
+                self.assertEqual(path.read_text(), '{"untouched":true}')
+            self.assertEqual(configure(folder, motion="off")["chat_view"], "newest")
+            before = (Path(folder)/"display.json").read_bytes()
+            for view in ("invalid", [], False):
+                with self.subTest(view=view), self.assertRaises(ValueError):
+                    configure(folder, chat_view=view)
+            self.assertEqual((Path(folder)/"display.json").read_bytes(), before)
+
     def test_layout_requires_core_states_and_stays_inside_sheet(self):
         with self.assertRaises(ValueError):
             layout_for((1536,1873))

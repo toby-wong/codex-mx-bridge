@@ -71,7 +71,8 @@ internal static class PetDisplay
                 File.WriteAllText(Path.Combine(root, "display-status.txt"), error.Length == 0 ?
                     $"{DateTimeOffset.UtcNow:O} mode={options.Mode}; fps={options.Fps}; animate={options.Animate}; " +
                     $"show_name={options.ShowName}; show_location={options.ShowLocation}; " +
-                    $"show_client={options.ShowClient}; show_status={options.ShowStatus}; use_chat_names={options.UseChatNames}" :
+                    $"show_client={options.ShowClient}; show_status={options.ShowStatus}; use_chat_names={options.UseChatNames}; " +
+                    $"chat_view={options.ChatView}" :
                     $"{DateTimeOffset.UtcNow:O} Text fallback: {error}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Trace.WriteLine(ex.Message); }
@@ -82,6 +83,8 @@ internal static class PetDisplay
     {
         lock (Gate) return DisplayPlan.Labels(tile, _options, ChatNames.Names);
     }
+
+    public static string ChatView { get { lock (Gate) return _options.ChatView; } }
 
     public static void Clear()
     {

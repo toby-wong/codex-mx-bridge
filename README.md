@@ -240,8 +240,20 @@ These are observations, not a complete agent state machine. In particular,
 By default, each tile shows its client, location and saved chat name or project
 label. These captions can be configured independently. Child rows have a `>` prefix.
 Rows retain registration order; active rows do not jump between keys on every
-event. Completed rows remain until cleared. Each host retains at most 256 local
+event in the default view. Completed rows remain until cleared. Each host retains at most 256 local
 rows; eviction increments a visible `PRUNED` indicator. Page with the dial.
+
+For more than nine chats, assign **Agent pages** to the dial or **Next agent
+page** to a spare control. For one page of nine selected chats, set `chat_view`
+in `display.json` to `recent` (latest activity), `recent_open` (latest activity
+excluding finished chats), or `newest` (recorded creation time). Use `paged`
+to restore all pages. Settings reload without a plugin restart:
+
+```sh
+~/.local/share/codex-mx-bridge/bin/codex-mx display --chat-view recent_open
+```
+
+See [paging, recent views and older-row compatibility](docs/CHAT-VIEWS.md).
 
 ```sh
 # Remove closed/stopped/expired local history; active recent rows remain.

@@ -17,6 +17,7 @@ public sealed class DisplayOptions
     public bool ShowClient { get; set; } = true;
     public bool ShowStatus { get; set; } = true;
     public bool UseChatNames { get; set; } = true;
+    public string ChatView { get; set; } = "paged";
     public Dictionary<string, string> NameOverrides { get; set; } = new();
     public static DisplayOptions Parse(string text)
     {
@@ -25,7 +26,8 @@ public sealed class DisplayOptions
         var o = JsonSerializer.Deserialize<DisplayOptions>(text, ViewModel.Json) ?? throw new JsonException("Missing display config");
         if (o.SchemaVersion != 1 || o.Mode is not ("text" or "pet") || o.Pet is null ||
             o.Fps is < 1 or > 8 || (o.Pet.Length > 0 && !Regex.IsMatch(o.Pet, @"\A[a-zA-Z0-9_-]{1,48}/[a-f0-9]{16}\z")) ||
-            (o.Mode == "pet" && o.Pet.Length == 0))
+            (o.Mode == "pet" && o.Pet.Length == 0) ||
+            o.ChatView is not ("paged" or "recent" or "recent_open" or "newest"))
             throw new JsonException("Invalid display mode, pet revision or frame rate");
         if (o.NameOverrides is null || o.NameOverrides.Count > 64 ||
             o.NameOverrides.Any(p => string.IsNullOrWhiteSpace(p.Key) || p.Key.Length > 700 ||

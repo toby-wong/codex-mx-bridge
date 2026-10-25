@@ -58,6 +58,7 @@ Existing files that omit the new fields show every label by default.
 | `show_status` | `true` | Show the exact observed state, such as `TOOL` or `TURN STOP` |
 | `use_chat_names` | `true` | Prefer a saved Codex chat name when available |
 | `name_overrides` | `{}` | Supply display names keyed by stable row identity |
+| `chat_view` | `"paged"` | Choose all pages or one of the three [recent chat views](CHAT-VIEWS.md) |
 
 These switches also apply in text mode. In pet mode, hiding status text keeps
 the same status animation and background colour. Set all four `show_…` switches
@@ -85,8 +86,9 @@ is opened. Missing names retain the project/agent label. Claude, Kiro, child
 agents and remote rows retain their own existing labels unless overridden.
 
 For any client, add entries to `name_overrides` using keys from `state.json`:
-local entries use their key under `agents`; remote entries use
-`remote/<source alias>/<key under that source's agents>`. Use the whole key,
+local entries use the `key` field in `rows`; remote entries use
+`remote/<source alias>/<key from that source's rows>`, under `remotes`.
+Use the whole key,
 including an `@client/…` prefix when present. Keys follow the chat when page
 positions change; they are not button numbers. For example:
 
@@ -172,7 +174,8 @@ frames and `manifest.json`. Settings: `display.json` in the bridge state folder:
   "show_client": true,
   "show_status": true,
   "use_chat_names": true,
-  "name_overrides": {}
+  "name_overrides": {},
+  "chat_view": "paged"
 }
 ```
 

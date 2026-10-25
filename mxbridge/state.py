@@ -123,7 +123,7 @@ def new_row(state, key, session, name, now, env, kind="session", client="codex",
     row = dict(key=key, session_id=session, name=clean(name) or LABELS[client], kind=kind,
                client=client, source_instance=instance,
                order=state["next_order"], status="READY", last_event="",
-               updated_at=now, valid_until=now + 900, turn_id="",
+               created_at=now, updated_at=now, valid_until=now + 900, turn_id="",
                run_id=clean(env.get("MX_CODEX_RUN_ID"), 128), agent_id="",
                **focus_target(env))
     state["rows"].append(row)
@@ -222,5 +222,9 @@ def export_snapshot(state, now=None):
         copy["iterm_id"] = copy["tty"] = copy["herdr_socket"] = ""
         copy["valid_until"] = max(0, copy["valid_until"] - now)
         copy["updated_at"] = max(0, now - copy["updated_at"])
+        # Like activity time, creation travels as an age to avoid clock skew.
+        # Missing legacy timestamps remain unknown, never inferred from activity.
+        if copy.get("created_at") is not None:
+            copy["created_at"] = max(0, now - copy["created_at"])
         rows.append(copy)
     return dict(schema_version=1, rows=rows)

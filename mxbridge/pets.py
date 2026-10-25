@@ -15,7 +15,8 @@ STANDARD = dict(idle=(0, 6), running_right=(1, 8), running_left=(2, 8),
 REQUIRED = {"idle", "running", "waiting", "review", "failed"}
 DEFAULT_DISPLAY = dict(schema_version=1, mode="text", pet="", fps=4, animate=True,
                        show_name=True, show_location=True, show_client=True,
-                       show_status=True, use_chat_names=True, name_overrides={})
+                       show_status=True, use_chat_names=True, name_overrides={}, chat_view="paged")
+CHAT_VIEWS = ("paged", "recent", "recent_open", "newest")
 MAX_DISPLAY_BYTES = 65536
 PET_ID = re.compile(r"[a-zA-Z0-9_-]{1,48}/[a-f0-9]{16}")
 
@@ -48,6 +49,9 @@ def validate_display(value):
         raise ValueError("Choose an imported pet before enabling pet mode")
     if type(fps) is not int or not 1 <= fps <= 8 or type(animate) is not bool:
         raise ValueError("fps must be an integer from 1 to 8 and animate must be boolean")
+    chat_view = value.get("chat_view", "paged")
+    if chat_view not in CHAT_VIEWS:
+        raise ValueError("chat_view must be paged, recent, recent_open or newest")
     labels = {key: value.get(key, True) for key in
               ("show_name", "show_location", "show_client", "show_status", "use_chat_names")}
     if any(type(v) is not bool for v in labels.values()):
@@ -59,7 +63,7 @@ def validate_display(value):
             for key, name in names.items()):
         raise ValueError("Use at most 64 chat name overrides with printable keys and names")
     result = dict(schema_version=1, mode=mode, pet=pet, fps=fps, animate=animate,
-                  **labels, name_overrides=dict(names))
+                  **labels, name_overrides=dict(names), chat_view=chat_view)
     if len(json.dumps(result, ensure_ascii=False).encode("utf-8")) > MAX_DISPLAY_BYTES:
         raise ValueError("display.json exceeds 64 KiB")
     return result
@@ -81,7 +85,8 @@ def resolve_pet(directory, name):
 
 
 def configure(directory, *, mode=None, pet=None, fps=None, motion=None, show_name=None,
-              show_location=None, show_client=None, show_status=None, use_chat_names=None):
+              show_location=None, show_client=None, show_status=None, use_chat_names=None,
+              chat_view=None):
     try:
         value = read_display(directory)
     except (ValueError, OSError):
@@ -90,7 +95,8 @@ def configure(directory, *, mode=None, pet=None, fps=None, motion=None, show_nam
         value = validate_display(DEFAULT_DISPLAY)  # Always allow an explicit return to text.
     for key, val in (("mode", mode), ("fps", fps), ("show_name", show_name),
                      ("show_location", show_location), ("show_client", show_client),
-                     ("show_status", show_status), ("use_chat_names", use_chat_names)):
+                     ("show_status", show_status), ("use_chat_names", use_chat_names),
+                     ("chat_view", chat_view)):
         if val is not None:
             value[key] = val
     if pet is not None:
