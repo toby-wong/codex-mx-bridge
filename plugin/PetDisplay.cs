@@ -8,10 +8,14 @@ internal static class PetDisplay
     private static readonly object Gate = new();
     private static readonly Stopwatch Clock = Stopwatch.StartNew();
     private static DisplayOptions _options = new();
-    private static PetManifest? _manifest;
-    private static Dictionary<string, BitmapImage> _images = new();
+    private sealed record LoadedPet(string Id, PetManifest Manifest,
+        Dictionary<string, BitmapImage> Images, long Pixels);
+    private static Dictionary<string, LoadedPet> _pets = new();
+    private static string _assetRoot = "";
     private static string _fingerprint = "";
+    private static string _loadErrors = "";
     private static string _renderStatus = "";
+    private static readonly HashSet<string> RenderedPets = new(StringComparer.Ordinal);
     private static bool _retry;
     private static readonly ChatNameIndex ChatNames = new();
 
@@ -22,10 +26,11 @@ internal static class PetDisplay
         bool namesChanged = ChatNames.Refresh(Path.Combine(codexHome, "session_index.jsonl"));
         string fingerprint;
         DisplayOptions options;
-        PetManifest? manifest = null;
-        var images = new Dictionary<string, BitmapImage>();
+        var pets = new Dictionary<string, LoadedPet>(StringComparer.Ordinal);
+        var packErrors = new List<string>();
         string error = "";
         string configPath = "";
+        string assetRoot = Path.GetFullPath(root);
         try
         {
             configPath = DisplayPaths.ReadLocation(root);
@@ -37,31 +42,55 @@ internal static class PetDisplay
             options = DisplayOptions.Parse(raw);
             if (options.Mode == "pet")
             {
-                string folder = Path.Combine(root, "pets", options.Pet.Replace('/', Path.DirectorySeparatorChar));
-                string manifestPath = Path.Combine(folder, "manifest.json");
-                if (new FileInfo(manifestPath).Length > 65536) throw new InvalidDataException("Oversize pet manifest");
-                manifest = PetManifest.Parse(File.ReadAllText(manifestPath));
-                foreach (var name in manifest.Animations.Values.SelectMany(v => v).Distinct())
-                    images[name] = BitmapImage.FromArray(DisplayPlan.ReadPng(Path.Combine(folder, name), manifest.FrameWidth, manifest.FrameHeight));
+                Dictionary<string, LoadedPet> previous;
+                lock (Gate) previous = _assetRoot == assetRoot
+                    ? _pets.Values.DistinctBy(p => p.Id).ToDictionary(p => p.Id)
+                    : new();
+                var loaded = new Dictionary<string, LoadedPet>(StringComparer.Ordinal);
+                long availablePixels = PetPack.MaxLoadedPixels;
+                foreach (string reference in PetSelection.References(options))
+                {
+                    try
+                    {
+                        string id = PetSelection.Resolve(root, reference);
+                        if (!loaded.TryGetValue(id, out var pet))
+                        {
+                            if (!previous.TryGetValue(id, out pet))
+                            {
+                                var pack = PetPack.Load(root, id, availablePixels);
+                                var images = pack.Frames.ToDictionary(p => p.Key, p => BitmapImage.FromArray(p.Value));
+                                pet = new(pack.Id, pack.Manifest, images, pack.Pixels);
+                            }
+                            if (pet.Pixels > availablePixels)
+                                throw new InvalidDataException("Selected pets exceed the loaded frame pixel limit");
+                            availablePixels -= pet.Pixels;
+                            loaded.Add(id, pet);
+                        }
+                        pets.Add(reference, pet);
+                    }
+                    catch (Exception ex) { packErrors.Add($"{reference}: {ex.Message}"); }
+                }
             }
         }
         catch (Exception ex)
         {
             options = new();
-            manifest = null;
-            images.Clear();
+            pets.Clear();
             fingerprint = "error:" + ex.GetType().Name + ":" + ex.Message;
             error = ex.Message;
         }
         bool changed;
+        string errors = error + string.Join(" | ", packErrors);
         lock (Gate)
         {
-            changed = fingerprint != _fingerprint;
+            changed = fingerprint != _fingerprint || errors != _loadErrors;
             _fingerprint = fingerprint;
+            _loadErrors = errors;
             _options = options;
-            _manifest = manifest;
-            _images = images;
-            _retry = error.Length > 0;
+            _pets = pets;
+            _assetRoot = assetRoot;
+            _retry = errors.Length > 0;
+            if (changed) RenderedPets.Clear();
         }
         if (changed)
             try
@@ -73,7 +102,10 @@ internal static class PetDisplay
                     $"{DateTimeOffset.UtcNow:O} mode={options.Mode}; fps={options.Fps}; animate={options.Animate}; " +
                     $"show_name={options.ShowName}; show_location={options.ShowLocation}; " +
                     $"show_client={options.ShowClient}; show_status={options.ShowStatus}; use_chat_names={options.UseChatNames}; " +
-                    $"chat_view={options.ChatView}; config_path={configPath}" :
+                    $"chat_view={options.ChatView}; pet={options.Pet}; pet_rules={options.PetRules.Count}; " +
+                    $"loaded_pets={string.Join(",", pets.Values.Select(p => p.Id).Distinct())}; " +
+                    $"config_path={configPath}" +
+                    (packErrors.Count == 0 ? "" : $"; pet_errors={string.Join(" | ", packErrors)}") :
                     $"{DateTimeOffset.UtcNow:O} Text fallback: {error}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Trace.WriteLine(ex.Message); }
@@ -89,7 +121,11 @@ internal static class PetDisplay
 
     public static void Clear()
     {
-        lock (Gate) { _manifest = null; _images.Clear(); _fingerprint = ""; _renderStatus = ""; _retry = false; _options = new(); }
+        lock (Gate)
+        {
+            _pets.Clear(); RenderedPets.Clear(); _assetRoot = ""; _fingerprint = ""; _loadErrors = "";
+            _renderStatus = ""; _retry = false; _options = new();
+        }
     }
 
     public static void ReportRenderError(Exception error)
@@ -125,12 +161,14 @@ internal static class PetDisplay
         target.DrawImage(label.ToImage(), 0, top);
     }
 
-    private static string? FileFor(Tile tile)
+    private static (LoadedPet Pet, string File)? FrameFor(Tile tile)
     {
-        if (_options.Mode != "pet" || _manifest is null || tile.Host == "bridge") return null;
+        string? reference = PetSelection.For(tile, _options);
+        if (reference is null || !_pets.TryGetValue(reference, out var pet)) return null;
         var (state, moves) = DisplayPlan.Animation(tile.Status);
-        var frames = _manifest.Animations[state];
-        return frames[DisplayPlan.Frame(frames.Length, _options.Fps, _options.Animate && moves, Clock.Elapsed.TotalSeconds)];
+        var frames = pet.Manifest.Animations[state];
+        string file = frames[DisplayPlan.Frame(frames.Length, _options.Fps, _options.Animate && moves, Clock.Elapsed.TotalSeconds)];
+        return (pet, file);
     }
 
     public static string? FrameKey(Tile? tile)
@@ -138,8 +176,8 @@ internal static class PetDisplay
         if (tile is null) return null;
         lock (Gate)
         {
-            var file = FileFor(tile);
-            return file is null ? null : $"{tile.Key}/{tile.Status}/{_options.Pet}/{file}";
+            var frame = FrameFor(tile);
+            return frame is null ? null : $"{tile.Key}/{tile.Status}/{frame.Value.Pet.Id}/{frame.Value.File}";
         }
     }
 
@@ -157,20 +195,25 @@ internal static class PetDisplay
         if (tile is null) return null;
         lock (Gate)
         {
-            var file = FileFor(tile);
-            if (file is null || _manifest is null || !_images.TryGetValue(file, out var frame)) return null;
+            var selected = FrameFor(tile);
+            if (selected is null) return null;
+            var (pet, file) = selected.Value;
+            var manifest = pet.Manifest;
+            var frame = pet.Images[file];
             using var b = new BitmapBuilder(size);
             var labels = DisplayPlan.Labels(tile, _options, ChatNames.Names);
             var (header, footer) = DisplayPlan.LabelHeights(labels, b.Height);
-            double scale = Math.Min((b.Width-8.0)/_manifest.FrameWidth, (b.Height-header-footer-4.0)/_manifest.FrameHeight);
-            int w = Math.Max(1, (int)(_manifest.FrameWidth*scale)), h = Math.Max(1, (int)(_manifest.FrameHeight*scale));
+            double scale = Math.Min((b.Width-8.0)/manifest.FrameWidth, (b.Height-header-footer-4.0)/manifest.FrameHeight);
+            int w = Math.Max(1, (int)(manifest.FrameWidth*scale)), h = Math.Max(1, (int)(manifest.FrameHeight*scale));
             var background = Background(tile.Status);
             b.Clear(background);
             if (header > 0) DrawLabel(b, labels.Header, 0, header, background);
             b.DrawImage(frame, (b.Width-w)/2, header+(b.Height-header-footer-h)/2, w, h);
             if (footer > 0) DrawLabel(b, labels.Footer, b.Height-footer, footer, background);
             var image = b.ToImage();
-            ReportRenderStatus($"pet:{_options.Pet}", $"Rendered pet {_options.Pet}; image={b.Width}x{b.Height}");
+            RenderedPets.Add(pet.Id);
+            string rendered = string.Join(",", RenderedPets.Order(StringComparer.Ordinal));
+            ReportRenderStatus($"pets:{rendered}", $"Rendered pets {rendered}; image={b.Width}x{b.Height}");
             return image;
         }
     }

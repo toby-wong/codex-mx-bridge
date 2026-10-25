@@ -19,13 +19,14 @@ public sealed class DisplayOptions
     public bool UseChatNames { get; set; } = true;
     public string ChatView { get; set; } = "paged";
     public Dictionary<string, string> NameOverrides { get; set; } = new();
+    public List<PetRule> PetRules { get; set; } = new();
     public static DisplayOptions Parse(string text)
     {
         if (System.Text.Encoding.UTF8.GetByteCount(text) > MaxBytes)
             throw new JsonException("display.json exceeds 64 KiB");
         var o = JsonSerializer.Deserialize<DisplayOptions>(text, ViewModel.Json) ?? throw new JsonException("Missing display config");
         if (o.SchemaVersion != 1 || o.Mode is not ("text" or "pet") || o.Pet is null ||
-            o.Fps is < 1 or > 8 || (o.Pet.Length > 0 && !Regex.IsMatch(o.Pet, @"\A[a-zA-Z0-9_-]{1,48}/[a-f0-9]{16}\z")) ||
+            o.Fps is < 1 or > 8 || (o.Pet.Length > 0 && !PetSelection.ValidReference(o.Pet)) ||
             (o.Mode == "pet" && o.Pet.Length == 0) ||
             o.ChatView is not ("paged" or "recent" or "recent_open" or "newest"))
             throw new JsonException("Invalid display mode, pet revision or frame rate");
@@ -34,6 +35,7 @@ public sealed class DisplayOptions
                 p.Key.Any(char.IsControl) || string.IsNullOrWhiteSpace(p.Value) ||
                 p.Value.Length > 80 || p.Value.Any(char.IsControl)))
             throw new JsonException("Invalid chat name overrides");
+        PetSelection.Validate(o);
         return o;
     }
 }

@@ -2,6 +2,35 @@
 
 Latest validation: 25 October 2026, Australia/Sydney.
 
+## Per-chat pet selection — 25 October 2026
+
+* 125 Python tests and 267 C# checks passed against the isolated feature source.
+  New coverage includes selector validation, ordered rule precedence,
+  local/remote and client isolation, child-agent keys, full remote aliases,
+  short-name resolution, ambiguous revisions, separate frame data for different
+  pets, loading limits, and the Python-to-C# settings contract.
+* The Release build passed with zero warnings/errors against the real SDK.
+  LogiPluginTool packed and verified the plugin. The package contains no
+  downloaded pet sheets or imported frame packs.
+* Clippit, Pingu, Leader Avatar and Dario were downloaded and imported locally.
+  The repository includes installation instructions and geometry fixtures,
+  rather than these art assets.
+* Installed release `0.3.0-b155fbe5968a`. Configuration reloads acknowledged
+  individual-chat selections in 0.309–0.571 seconds with the same service PID.
+  A missing selected pack produced a `pet_errors` entry while the cat, Pingu
+  and Dario packs remained loaded. The requested defaults were restored.
+
+The final local settings retain the current cat, select Pingu for remote
+sessions, and select Dario for Claude regardless of location. Eight FPS,
+recent-chat view and caption settings were preserved.
+
+No fresh button-image callback was observed during this verification;
+`render-status.txt` still predated the update. Pack decoding, selection and
+config reload were verified, but physical multi-pet rendering and LCD legibility
+remain hardware acceptance checks.
+Local receipt:
+`~/.local/share/codex-mx-bridge/backups/pet-selection-verification-2026-10-25.json`.
+
 ## Display config directory — 25 October 2026
 
 * 121 Python tests and 220 C# checks passed.

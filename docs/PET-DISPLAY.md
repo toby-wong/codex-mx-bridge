@@ -43,6 +43,99 @@ For a manual environment, install `.[pets]` or `Pillow==13.0.0`, then use
 `python3.15 bridge.py`. Pillow is required only for import: hooks, SSH and
 playback of imported frames do not need it. See [Pillow's Python support](https://pillow.readthedocs.io/en/stable/installation/python-support.html).
 
+## Download a community pet
+
+Browse [Codex Pets](https://codex-pets.net/#/) and choose **Download package**
+on a pet's page. Examples include [Clippit](https://codex-pets.net/#/pets/clippit),
+[Pingu](https://codex-pets.net/#/pets/pingu),
+[Leader Avatar](https://codex-pets.net/#/pets/leader-avatar), and
+[Dario](https://codex-pets.net/#/pets/dario).
+
+Extract the downloaded `.codex-pet.zip` into its own directory. Import its
+`spritesheet.webp` on the Mac, using the name you want to use in settings:
+
+```sh
+# After downloading Pingu and extracting its package into this folder:
+~/.local/share/codex-mx-bridge/bin/codex-mx pet import \
+  --sheet "$HOME/Downloads/pingu/spritesheet.webp" --name pingu
+~/.local/share/codex-mx-bridge/bin/codex-mx pet list
+```
+
+Repeat with `--name clippit`, `--name leader-avatar`, or `--name dario` and the
+corresponding extracted sheet. Importing keeps the existing selection until
+you change the config. Downloaded archives, sheets, and imported frames are
+local assets; this repository does not distribute these pet packs. Review
+each source's terms before redistributing its artwork.
+
+## Choose pets by client, location or chat
+
+The `pet` field is the default. It accepts an imported name, such as `"pingu"`,
+or a full revision ID from `pet list`. Short names work when exactly one
+revision is imported; use the full ID to disambiguate multiple revisions.
+
+Add `pet_rules` to `~/.config/codex-mx-bridge/display.json` for exceptions.
+For example, this keeps an imported cat locally, uses Pingu remotely, and
+uses Dario for Claude on both local and remote machines:
+
+```json
+{
+  "schema_version": 1,
+  "mode": "pet",
+  "pet": "monthly-salary-cat",
+  "fps": 8,
+  "pet_rules": [
+    {"location": "remote", "pet": "pingu"},
+    {"client": "claude", "pet": "dario"}
+  ]
+}
+```
+
+Merge these fields into your existing file to retain its caption and chat-view
+settings. Substitute your own imported default pet if you do not have that cat.
+After installing the plugin version with pet rules once, changes reload during
+the normal 500 ms poll; no rebuild or restart is needed.
+
+Each rule needs `pet` and at least one selector:
+
+| Selector | Match |
+| --- | --- |
+| `location` | `"local"` or `"remote"` |
+| `client` | `"codex"`, `"claude"` or `"kiro"` |
+| `host` | Exact remote source alias, including the part too long to fit on a button |
+| `key` | Exact stable chat or child-agent key, using the same convention as `name_overrides` below |
+
+All selectors in one rule must match. **The last matching rule wins**; keep
+broad defaults first and individual chat rules last. Matches are exact and
+case-sensitive, with no wildcards. A `host` selector applies only to remotes.
+For example, append either of these rules to the array:
+
+```json
+{"location": "local", "client": "kiro", "pet": "leader-avatar"}
+```
+
+```json
+{"host": "clouddesk", "client": "codex", "pet": "clippit"}
+```
+
+An individual chat can have its own pet:
+
+```json
+{"key": "remote/clouddesk/actual-row-key", "pet": "leader-avatar"}
+```
+
+Use the real local `rows[].key`, or
+`remote/<source alias>/<remotes[source].rows[].key>`, from
+`~/.local/state/codex-mx-bridge/state.json`. Keep any `@client/…` prefix.
+Keys stay with chats as buttons reorder; matching a display name or button
+number is not supported. Child agents use their own keys.
+
+The bridge supports up to 64 rules and 16 distinct pet references, with a total
+loaded-frame budget of 33,554,432 pixels. It caches each imported
+revision once, even if multiple rules select it. An unavailable or broken pack
+falls back to text only on the chats selecting that pack; other pets continue.
+`display-status.txt` lists loaded revisions and any `pet_errors`. Missing packs
+are retried, so importing one can recover its selected chats without a restart.
+
 ## Configure button labels
 
 Edit `~/.config/codex-mx-bridge/display.json` to choose the captions on all
@@ -168,6 +261,7 @@ Settings: `~/.config/codex-mx-bridge/display.json`:
   "schema_version": 1,
   "mode": "pet",
   "pet": "buddy/0123456789abcdef",
+  "pet_rules": [],
   "fps": 4,
   "animate": true,
   "show_name": true,
@@ -183,8 +277,8 @@ Settings: `~/.config/codex-mx-bridge/display.json`:
 Keep your existing imported pet revision when editing labels. Settings are
 limited to 64 KiB, with at most 64 name overrides, keys up to 700 characters and
 names up to 80 characters. Control characters and blank keys/names are rejected.
-Invalid settings, manifests,
-missing frames or decoding errors fall back to text. Loading errors appear in
+Invalid settings fall back to text. Invalid manifests, missing frames or
+decoding errors affect only the selected pack. Loading errors appear in
 `display-status.txt`, which also records the active caption switches.
 `render-status.txt` records a successful pet draw or a
 rendering error, suppressing repeated identical results. Check both files when

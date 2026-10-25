@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from mxbridge.pets import read_display
+from mxbridge.pets import read_display, resolve_pet
 
 ASSETS = ROOT / "docs" / "assets"
 SIZE = (1440, 980)
@@ -89,7 +89,7 @@ def text(image, xy, value, face, size, fill=INK, bold=False, anchor="lt"):
 def read_pet(state_dir, pet_dir):
     if pet_dir is None:
         settings = read_display(state_dir)
-        pet_dir = state_dir / "pets" / settings["pet"]
+        pet_dir = state_dir / "pets" / resolve_pet(state_dir, settings["pet"])
     manifest = json.loads((pet_dir / "manifest.json").read_text())
     frames = {}
     for animation in ANIMATIONS:

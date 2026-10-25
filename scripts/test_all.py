@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.15
 """Portable tests plus Python -> C# wire compatibility, no hardware required."""
 import os
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -9,6 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from mxbridge.focus import bind
+from mxbridge.pets import DEFAULT_DISPLAY, validate_display
 from mxbridge.state import Store, apply_event
 
 subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], cwd=ROOT, check=True)
@@ -22,4 +24,8 @@ with tempfile.TemporaryDirectory(prefix="mx-contract-") as state:
         apply_event(wire, dict(session_id="client-contract", hook_event_name="preToolUse"),
                     env={}, client="kiro")
     bind(state, "/tmp/mx-herdr.sock", "12345678-1234-1234-1234-123456789abc")
+    (Path(state)/"pet-display.json").write_text(json.dumps(validate_display(dict(
+        DEFAULT_DISPLAY, mode="pet", pet="clippit", pet_rules=[
+            dict(location="remote", pet="pingu"),
+            dict(location="remote", client="claude", pet="leader-avatar/0123456789abcdef")]))))
     subprocess.run(["dotnet", "run", "--project", "tests/ViewModelTests", "--", str(Path(state)/"state.json")], cwd=ROOT, check=True)

@@ -96,6 +96,7 @@ try { PetManifest.Parse(JsonSerializer.Serialize(manifest, ViewModel.Json)); thr
 catch (JsonException) { spriteChecks++; }
 Console.WriteLine($"PASS: {spriteChecks} sprite display checks");
 Console.WriteLine($"PASS: {DisplayTests.Run()} configurable label checks");
+Console.WriteLine($"PASS: {PetSelectionTests.Run(args.Length == 1 ? Path.Combine(Path.GetDirectoryName(args[0])!, "pet-display.json") : null)} pet selection checks");
 Console.WriteLine($"PASS: {ChatViewTests.Run()} chat view checks");
 Console.WriteLine($"PASS: {ConfigPathTests.Run()} configuration path checks");
 Console.WriteLine($"PASS: {await FocusTests.Run()} Herdr focus checks");

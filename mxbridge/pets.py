@@ -15,10 +15,39 @@ STANDARD = dict(idle=(0, 6), running_right=(1, 8), running_left=(2, 8),
 REQUIRED = {"idle", "running", "waiting", "review", "failed"}
 DEFAULT_DISPLAY = dict(schema_version=1, mode="text", pet="", fps=4, animate=True,
                        show_name=True, show_location=True, show_client=True,
-                       show_status=True, use_chat_names=True, name_overrides={}, chat_view="paged")
+                       show_status=True, use_chat_names=True, name_overrides={}, chat_view="paged",
+                       pet_rules=[])
 CHAT_VIEWS = ("paged", "recent", "recent_open", "newest")
 MAX_DISPLAY_BYTES = 65536
 PET_ID = re.compile(r"[a-zA-Z0-9_-]{1,48}/[a-f0-9]{16}")
+PET_REFERENCE = re.compile(r"[a-zA-Z0-9_-]{1,48}(?:/[a-f0-9]{16})?")
+
+
+def validate_pet_rules(rules, default_pet):
+    if not isinstance(rules, list) or len(rules) > 64:
+        raise ValueError("pet_rules must be a list of at most 64 rules")
+    result = []
+    for rule in rules:
+        if not isinstance(rule, dict) or set(rule) - {"pet", "location", "client", "host", "key"}:
+            raise ValueError("Pet rules accept only pet, location, client, host and key")
+        pet = rule.get("pet")
+        if not isinstance(pet, str) or not PET_REFERENCE.fullmatch(pet):
+            raise ValueError("Each pet rule needs an imported pet name or revision ID")
+        for field, limit in (("location", 6), ("client", 6), ("host", 255), ("key", 700)):
+            value = rule.get(field, "")
+            if not isinstance(value, str) or len(value) > limit or (value and (
+                    not value.strip() or not value.isprintable())):
+                raise ValueError("Invalid pet rule selector")
+        if rule.get("location", "") not in {"", "local", "remote"} or rule.get("client", "") not in {"", "codex", "claude", "kiro"}:
+            raise ValueError("Pet rule location must be local/remote and client must be codex/claude/kiro")
+        if not any(rule.get(field) for field in ("location", "client", "host", "key")):
+            raise ValueError("A pet rule needs a selector; use pet for the default")
+        if rule.get("host") and rule.get("location") == "local":
+            raise ValueError("A host selector applies only to remote chats")
+        result.append(dict(rule))
+    if len({default_pet, *(r["pet"] for r in result)} - {""}) > 16:
+        raise ValueError("Configure at most 16 distinct pet references")
+    return result
 
 
 def pillow():
@@ -55,7 +84,7 @@ def validate_display(value):
         raise ValueError("Unsupported display schema")
     mode, pet = value.get("mode", "text"), value.get("pet", "")
     fps, animate = value.get("fps", 4), value.get("animate", True)
-    if mode not in {"text", "pet"} or not isinstance(pet, str) or (pet and not PET_ID.fullmatch(pet)):
+    if mode not in {"text", "pet"} or not isinstance(pet, str) or (pet and not PET_REFERENCE.fullmatch(pet)):
         raise ValueError("Invalid display mode or pet ID")
     if mode == "pet" and not pet:
         raise ValueError("Choose an imported pet before enabling pet mode")
@@ -75,7 +104,8 @@ def validate_display(value):
             for key, name in names.items()):
         raise ValueError("Use at most 64 chat name overrides with printable keys and names")
     result = dict(schema_version=1, mode=mode, pet=pet, fps=fps, animate=animate,
-                  **labels, name_overrides=dict(names), chat_view=chat_view)
+                  **labels, name_overrides=dict(names), chat_view=chat_view,
+                  pet_rules=validate_pet_rules(value.get("pet_rules", []), pet))
     if len(json.dumps(result, ensure_ascii=False).encode("utf-8")) > MAX_DISPLAY_BYTES:
         raise ValueError("display.json exceeds 64 KiB")
     return result
@@ -85,7 +115,8 @@ def resolve_pet(directory, name):
     if PET_ID.fullmatch(name):
         target = Path(directory)/"pets"/name
     elif re.fullmatch(r"[a-zA-Z0-9_-]{1,48}", name):
-        matches = sorted((Path(directory)/"pets"/name).glob("*/manifest.json"))
+        matches = sorted(p for p in (Path(directory)/"pets"/name).glob("*/manifest.json")
+                         if PET_ID.fullmatch(f"{name}/{p.parent.name}"))
         if len(matches) != 1:
             raise ValueError("Pet name is missing or has several revisions; use the full ID shown by pet list")
         target = matches[0].parent

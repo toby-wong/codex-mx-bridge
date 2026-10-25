@@ -41,6 +41,9 @@ animations and status colours at 4 fps.
   [SSH and Herdr setup](docs/REMOTE-AND-HERDR.md),
   [test evidence](docs/VALIDATION.md), and a separate
   [Herdr extension assessment](docs/HERDR-EXTENSION-ASSESSMENT.md).
+* [Community pet installation and per-chat pet rules](docs/PET-DISPLAY.md#download-a-community-pet).
+  Choose a default pet and override it by client, local/remote source, host, or
+  individual chat. Pet artwork is downloaded separately from Codex Pets.
 * [Marketplace publishing assessment](docs/MARKETPLACE-PUBLISHING.md), including
   the official submission route and remaining distribution work.
 

@@ -39,7 +39,7 @@ public sealed class State
 public sealed record Tile(string Key, string Name, string Status, string Host,
                           string ItermId = "", string Tty = "", string Kind = "session",
                           bool Herdr = false, string SessionId = "", string HerdrSocket = "",
-                          string Client = "codex")
+                          string Client = "codex", string? RemoteHost = null)
 {
     public string Header => Client switch
     {
@@ -75,10 +75,11 @@ public static class ViewModel
         {
             bool offline = remote.Error.Length > 0 || now > remote.ReceivedAt + 15;
             if (remote.Rows.Count == 0 && offline)
-                list.Add((new("remote/" + host, "SSH", "OFFLINE", Short(host)), null, host));
+                list.Add((new("remote/" + host, "SSH", "OFFLINE", Short(host), RemoteHost: host), null, host));
             foreach (var r in remote.Rows.OrderBy(r => r.Order))
                 list.Add((new("remote/" + host + "/" + r.Key, Short(r.Name),
-                    offline ? "OFFLINE" : Status(r), Short(host), Kind: r.Kind, Client: r.Client), r, host));
+                    offline ? "OFFLINE" : Status(r), Short(host), Kind: r.Kind, Client: r.Client,
+                    RemoteHost: host), r, host));
         }
         if (state.DroppedRows > 0)
             list.Add((new("overflow", "History cap", "PRUNED " + state.DroppedRows, "bridge"), null, "bridge"));
