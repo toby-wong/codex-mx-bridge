@@ -17,7 +17,8 @@ bash install.sh --with-pets --pet-sheet "$HOME/Downloads/my-pet.png" --pet-name 
 This adds Pillow 13.0.0 to the isolated Python 3.15 environment, imports the
 sheet and enables pet mode. Finish normal upgrade steps: review new definitions
 in Codex `/hooks` and restart Logi Plugin Service. Keep existing button mappings.
-No Codex pet artwork is bundled in the project/download.
+No installable pet sprite pack is bundled in the project/download. The README
+includes a rendered example using a locally imported pet.
 
 Install only the importer with `bash install.sh --with-pets`. Then:
 
@@ -122,7 +123,7 @@ private app settings/database, or use install deep links as an export API. If
 only an installed built-in is available and its sheet cannot be obtained,
 automatic reuse is not provided.
 
-Assets remain on the Mac and never enter SSH exports. Linux needs no new
+Imported packs remain on the Mac and never enter SSH exports. Linux needs no new
 dependency/install for this display option; version-1 status export still works.
 The Mac theme applies to local and remote rows. Tests use geometry fixtures, not
 redistributed pet art. Physical motion, LCD legibility, host CPU load and the

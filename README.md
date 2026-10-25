@@ -8,12 +8,14 @@ hardware and macOS integration still need the acceptance checks below.
 Repository: [toby-wong/codex-mx-bridge](https://github.com/toby-wong/codex-mx-bridge)
 (private). Version 0.3.0. Documentation verified 24 October 2026.
 
-![Illustrative rendering of Codex status keys and dial paging](docs/assets/console-preview.png)
+![Animated Logitech MX Creative Console with monthly-salary-cat showing ready, working, approval, turn stop, and exit error states](docs/assets/console-preview.gif)
 
-Illustration using simulated agents and the implemented labels/colours. Hardware
-proportions and automatic SDK font rendering may differ; this is not a device photograph.
-The preview shows the default text theme. An optional animated pet theme is
-available; see [pet display setup](docs/PET-DISPLAY.md).
+Logitech's pale-grey product render, composited with `monthly-salary-cat`.
+The 16-second loop shows example agents changing state using the bridge's pet
+animations and status colours at 4 fps.
+[Still preview](docs/assets/console-preview.png) ·
+[Pet display setup](docs/PET-DISPLAY.md) ·
+[Artwork sources and regeneration](docs/assets/README.md).
 
 ## What is included
 
@@ -198,8 +200,9 @@ without a rebuild after installing this plugin version:
 ~/.local/share/codex-mx-bridge/bin/codex-mx display --mode pet --pet buddy --fps 4
 ```
 
-No pet artwork is bundled or automatically extracted from the app. Supply a
-compatible PNG/WebP sheet; built-in/app versions with different layouts need
+No installable pet sprite pack is bundled or automatically extracted from the app.
+The README shows a rendered example. Supply a compatible PNG/WebP sheet;
+built-in/app versions with different layouts need
 an explicit layout file. The bridge does not follow the app's current pet.
 See [formats, status mapping, import commands, and limits](docs/PET-DISPLAY.md).
 Linux requires no additional dependency for this Mac display option.
