@@ -7,9 +7,19 @@ and one explicit binding for each local Herdr server.
 
 ## Bind the terminal
 
-Install the updated bridge and reload its Logitech plugin using the normal
-setup procedure. In the **outer local iTerm2 shell** that will display Herdr,
-register the socket for that Herdr session:
+From the source checkout, in the **outer local iTerm2 shell** that will display
+Herdr, upgrade the installed bridge and register the terminal in one command:
+
+```sh
+bash update.sh --bind-herdr "$HOME/.config/herdr/herdr.sock"
+```
+
+The updater rebuilds/reloads the plugin and preserves your pet settings and
+button assignments. Review the changed Codex hooks in `/hooks` afterward.
+`--dry-run` previews the operation; `--no-restart` defers the plugin reload.
+
+If the updated hooks and plugin are already installed, register just the
+socket for that Herdr session:
 
 ```sh
 ~/.local/share/codex-mx-bridge/bin/codex-mx herdr-focus bind \

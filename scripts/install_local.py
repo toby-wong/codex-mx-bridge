@@ -23,7 +23,7 @@ from mxbridge.install import definition, install
 from mxbridge.state import atomic_json
 
 ITEMS = ("bridge.py", "mxbridge", "plugin", "scripts", "tests", "docs", "README.md",
-         "global.json", "pyproject.toml", ".python-version")
+         "global.json", "pyproject.toml", ".python-version", "install.sh", "update.sh")
 EXCLUDED = {"bin", "obj", ".git", ".tools", "__pycache__"}
 
 
@@ -175,7 +175,7 @@ def back_up_packaged_plugins(plugins, prefix):
         print(f"Previous bridge package backed up to {backup}")
 
 
-def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shutil.which):
+def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shutil.which, next_steps=True):
     platform = sys.platform if platform is None else platform
     if platform not in {"darwin", "linux"}:
         raise InstallError("Run the installer on macOS or Linux")
@@ -285,16 +285,19 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
     launcher.chmod(0o700)
     atomic_json(prefix/"installation.json", dict(version=__version__, python=str(python),
         release=str(release), codex_home=str(codex_home), launcher=str(launcher),
-        hooks_only=hooks_only, plugin_link=str(plugin_link) if plugin_link else None))
+        hooks_only=hooks_only, plugin_link=str(plugin_link) if plugin_link else None,
+        plugin_release=str(release) if plugin_link else None,
+        sdk=str(args.sdk.expanduser().resolve()) if not hooks_only else None))
     print("Installed and self-check passed.")
     print(f"Bridge command: {shlex.quote(str(launcher))} status")
     print(f"Remote Python path: {python}")
     print(f"Remote script path: {release/'bridge.py'}")
     if hooks_only:
         print("Mac collector arguments: "+shlex.join(["--remote-python", str(python), "--remote-script", str(release/"bridge.py")]))
-    print("Restart Codex, then review and trust the bridge entries in /hooks (required by Codex).")
-    if not hooks_only:
-        print("Restart Logi Plugin Service in Options+, then map Agent slot 1–9 and Agent pages.")
+    if next_steps:
+        print("Restart Codex, then review and trust the bridge entries in /hooks (required by Codex).")
+        if not hooks_only:
+            print("Restart Logi Plugin Service in Options+, then map Agent slot 1–9 and Agent pages.")
     return 0
 
 

@@ -71,8 +71,7 @@ cd codex-mx-bridge
 bash install.sh
 ```
 
-For an existing checkout, run `git pull` before `bash install.sh`. For the ZIP,
-extract it, enter its `codex-mx-bridge` folder, and run the same script. It copies
+For the ZIP, extract it, enter its `codex-mx-bridge` folder, and run the same script. It copies
 the necessary source to a stable user-local location, so moving the downloaded
 folder afterwards does not break the hooks.
 
@@ -95,6 +94,43 @@ If Options+ is missing and you have Homebrew, use `bash install.sh --install-opt
 to run its cask installer. Vendor/macOS setup or a reboot may require rerunning
 the bridge installer. Without Homebrew, install Options+ from Logitech first.
 The bridge does not install or replace Codex CLI or log you into it.
+
+## Updating an existing installation
+
+From this checkout:
+
+```sh
+bash update.sh
+```
+
+This installs the current checkout using the existing runtime and Codex config
+location. It selects a compatible cached SDK, rebuilds the plugin, and restarts
+Logi Plugin Service on Mac. Pet assets/settings, agent state, terminal bindings,
+and button assignments are retained. Old releases and an installation-manifest
+backup remain available.
+
+To activate local Herdr focus during the upgrade, run this from the **outer
+local iTerm2 shell** that will display Herdr:
+
+```sh
+bash update.sh --bind-herdr "$HOME/.config/herdr/herdr.sock"
+```
+
+Then attach that terminal to Herdr and review the updated Codex hooks in
+`/hooks`. Restart/resume Codex if it still uses the previous hook command.
+For another Herdr session, supply its actual socket path. See
+[Herdr focus setup](docs/HERDR-FOCUS.md).
+
+Use `--dry-run` to preview, `--no-restart` to defer plugin reload, `--prefix PATH`
+for a custom install, or `--sdk PATH` to override SDK selection. `--no-downloads`
+requires existing dependencies. The updater uses the local source as-is; it
+does not pull, reset, stash, or otherwise modify Git. Fetch/merge upstream
+changes separately when desired.
+
+Existing Linux/hooks-only installations use the same command and keep that
+installation mode. Codex hook trust remains a manual step.
+
+## Installation options
 
 Useful variants:
 

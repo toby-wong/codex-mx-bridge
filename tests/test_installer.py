@@ -177,7 +177,10 @@ class InstallerTests(unittest.TestCase):
             link = home/"Library/Application Support/Logi/LogiPluginService/Plugins/CodexMxPlugin.link"
             self.assertTrue(link.is_file())
             self.assertTrue((Path(link.read_text().strip())/"bin/CodexMxPlugin.dll").exists())
-            self.assertFalse(json.loads((prefix/"installation.json").read_text())["hooks_only"])
+            manifest = json.loads((prefix/"installation.json").read_text())
+            self.assertFalse(manifest["hooks_only"])
+            self.assertEqual(manifest["sdk"], str(sdk.resolve()))
+            self.assertEqual(manifest["plugin_release"], manifest["release"])
 
     def test_pet_setup_is_mac_only_and_dry_run_has_no_downloads(self):
         with tempfile.TemporaryDirectory() as folder:

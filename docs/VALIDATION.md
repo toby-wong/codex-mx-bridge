@@ -2,6 +2,28 @@
 
 Date: 24 October 2026, Australia/Sydney.
 
+## Upgrade helper update — 25 October 2026
+
+`bash update.sh` upgrades an existing installation from the current checkout.
+The updater and installer changes passed:
+
+* 75 Python tests, plus 20 C# view-model/contract, 18 sprite, 82 Herdr focus,
+  and 6 Unix socket checks through `scripts/test_all.py`.
+* Bash syntax validation and a real `update.sh --dry-run --no-downloads`
+  against the existing Mac installation. It selected the cached .NET 8
+  `LogiPluginTool` SDK and made no installation or service changes.
+* A real hooks-only upgrade in temporary directories, preserving existing
+  hooks, agent state, display settings, and Herdr bindings.
+* Simulated Mac upgrade/reload checks for SDK selection, retained install
+  paths, manifest backup, binding validation, build failure, process respawn,
+  restart timeout, and deferred restart.
+* Read-only verification that the exact current-user process selector matches
+  the running Logi Plugin Service.
+
+The live Mac upgrade/restart has not been executed. Its process-control tests
+use a simulated runner; the installed plugin and live configuration were kept
+unchanged during this validation.
+
 ## Local Herdr focus update — 25 October 2026
 
 Validated on macOS using the installed Python 3.15 environment, .NET 8, and

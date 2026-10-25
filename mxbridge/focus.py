@@ -57,13 +57,17 @@ def read_bindings(directory):
     return value
 
 
-def bind(directory, path, target=None, env=None):
+def make_binding(path, target=None, env=None):
     env = os.environ if env is None else env
     if target is None:
         if env.get("HERDR_ENV") == "1" or env.get("SSH_CONNECTION"):
             raise ValueError("Bind from the outer local iTerm2 shell, or pass its explicit --iterm-id")
         target = env.get("ITERM_SESSION_ID")
-    binding = {"socket_path": socket_path(path), "iterm_id": iterm_id(target)}
+    return {"socket_path": socket_path(path), "iterm_id": iterm_id(target)}
+
+
+def bind(directory, path, target=None, env=None):
+    binding = make_binding(path, target, env)
     value = read_bindings(directory)
     value["bindings"] = [item for item in value["bindings"]
                          if socket_path(item["socket_path"]) != binding["socket_path"]]
