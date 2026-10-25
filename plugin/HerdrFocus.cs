@@ -65,6 +65,10 @@ internal static class HerdrFocus
     public static async Task<string> FocusAsync(Tile tile, HerdrFocusOptions options,
         HerdrRequest request, ItermSelect terminal, CancellationToken cancellation)
     {
+        // Herdr matching below is verified only for Codex's native identity.
+        // Another client's session ID must never select a matching Codex pane.
+        if (tile.Client != "codex")
+            throw new InvalidOperationException("Herdr button focus currently supports Codex sessions only.");
         if (!tile.Herdr || tile.Host != "local" || string.IsNullOrEmpty(tile.SessionId) ||
             !HerdrFocusOptions.ValidSocket(tile.HerdrSocket))
             throw new InvalidOperationException("No local Herdr identity; wait for a hook from the updated bridge.");

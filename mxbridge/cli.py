@@ -1,4 +1,5 @@
 import argparse
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -8,13 +9,36 @@ import sys
 import time
 import uuid
 from .install import definition, install
+from .install import record_target, require_cli, target, validate_kiro_profile
+from .adapters import CLIENTS, LABELS
+from .adapters.common import identity
 from .ssh import collect_once, command
 from .state import Store, apply_event, export_snapshot, run_start, run_update
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def hook(store):
+@contextmanager
+def hook_deadline():
+    """Finish before the host's 2s timeout, even if stdin never closes."""
+    if not hasattr(signal, "setitimer"):
+        yield
+        return
+    previous = signal.getsignal(signal.SIGALRM)
+    def expired(_signum, _frame):
+        raise TimeoutError("Hook deadline exceeded")
+    signal.signal(signal.SIGALRM, expired)
+    timer = signal.setitimer(signal.ITIMER_REAL, 1.0)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+        if timer != (0.0, 0.0):
+            signal.setitimer(signal.ITIMER_REAL, *timer)
+
+
+def hook(store, client="codex", instance=""):
     # Hooks always succeed silently. Stop/SubagentStop get valid JSON, never prose.
     try:
         raw = sys.stdin.buffer.read(2 * 1024 * 1024 + 1)
@@ -24,26 +48,30 @@ def hook(store):
         if not isinstance(payload, dict):
             raise ValueError("Hook input must be an object")
         with store.transaction() as state:
-            apply_event(state, payload)
+            apply_event(state, payload, client=client, instance=instance)
     except Exception:
         # Do not disclose prompts, tool args, or transcript content on error.
         try:
-            (store.directory / "hook-error.txt").write_text(
+            name = "hook-error.txt" if client == "codex" else f"hook-{client}-error.txt"
+            (store.directory / name).write_text(
                 "Bridge hook failed; inspect directory permissions, lock, and state.json.\n",
                 encoding="utf-8")
         except OSError:
             pass
-    print("{}")
+    if client == "codex":
+        print("{}")
     return 0
 
 
-def launch(store, argv, label):
+def launch(store, argv, label, client="codex", instance=""):
+    identity(instance, optional=True, limit=80)
     if argv and argv[0] == "--":
         argv = argv[1:]
     if not argv:
-        argv = ["codex"]
+        argv = ["kiro-cli" if client == "kiro" else client]
     env = dict(os.environ, MX_CODEX_RUN_ID=str(uuid.uuid4()),
-               MX_CODEX_STATE_DIR=str(store.directory.resolve()))
+               MX_CODEX_STATE_DIR=str(store.directory.resolve()),
+               MX_BRIDGE_CLIENT=client, MX_BRIDGE_INSTANCE=instance)
     if label:
         env["MX_CODEX_LABEL"] = label
     try:
@@ -52,7 +80,7 @@ def launch(store, argv, label):
         pass
     rid = env["MX_CODEX_RUN_ID"]
     with store.transaction() as state:
-        run_start(state, rid, label or Path.cwd().name, env, time.time())
+        run_start(state, rid, label or Path.cwd().name, env, time.time(), client, instance)
     child = None
     old_handlers = {}
     try:
@@ -88,18 +116,29 @@ def launch(store, argv, label):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Codex CLI to Logi Actions SDK bridge")
+    parser = argparse.ArgumentParser(description="Agent command hooks to Logi Actions SDK bridge")
     parser.add_argument("--state-dir", type=Path, help="Override state directory")
     sub = parser.add_subparsers(dest="action", required=True)
-    sub.add_parser("hook", help="Codex command hook, JSON on stdin")
+    p = sub.add_parser("hook", help="Observational command hook, JSON on stdin")
+    p.add_argument("--client", choices=CLIENTS, default="codex")
+    p.add_argument("--instance", default="")
+    p.add_argument("--hook-owner", help=argparse.SUPPRESS)
     sub.add_parser("export", help="Emit local-only sanitized snapshot for SSH")
     sub.add_parser("status", help="Inspect raw bridge state")
     p = sub.add_parser("install-hooks", help="Preview or merge hooks; preserves Herdr")
     p.add_argument("--apply", action="store_true")
     p.add_argument("--remove", action="store_true")
     p.add_argument("--codex-home", type=Path, default=Path(os.environ.get("CODEX_HOME", Path.home()/".codex")))
+    p.add_argument("--client", choices=CLIENTS, default="codex")
+    p.add_argument("--claude-settings", type=Path)
+    p.add_argument("--agent-config", type=Path)
+    p.add_argument("--kiro-format", choices=("v2", "v3"), default="v2",
+                   help="Kiro profile hook shape; v2 object or v3 inline array")
+    p.add_argument("--instance", default="")
     p = sub.add_parser("run", help="Optional process heartbeat and exit tracking")
     p.add_argument("--label")
+    p.add_argument("--client", choices=CLIENTS, default="codex")
+    p.add_argument("--instance", default="")
     p.add_argument("command", nargs=argparse.REMAINDER)
     p = sub.add_parser("collect-ssh", help="Collect Linux status over existing SSH trust")
     p.add_argument("--host", required=True, help="SSH config alias")
@@ -134,17 +173,40 @@ def main(argv=None):
     p.add_argument("--layout", type=Path, help="Explicit atlas layout for another sprite version")
     args = parser.parse_args(argv)
     if args.action == "install-hooks":
-        result = install(args.codex_home / "hooks.json", {} if args.remove else
-                         definition(ROOT / "bridge.py"), args.apply)
+        try:
+            selected = target(args.client, codex_home=args.codex_home,
+                              claude_settings=args.claude_settings, agent_config=args.agent_config,
+                              kiro_format=args.kiro_format, instance=args.instance,
+                              require_existing=not args.remove)
+            options = dict(client=args.client, kiro_format=args.kiro_format)
+            proposed = {} if args.remove else definition(
+                ROOT / "bridge.py", instance=args.instance, **options)
+            result = install(selected["path"], proposed, **options)
+            if args.apply:
+                record_target(ROOT/"bridge.py", selected, remove=args.remove, apply=False)
+                if not args.remove:
+                    executable = require_cli(args.client)
+                    if args.client == "kiro":
+                        validate_kiro_profile(result, executable, cwd=Path(selected["path"]).parent)
+                result = install(selected["path"], proposed, True, **options)
+                record_target(ROOT/"bridge.py", selected, remove=args.remove)
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+            parser.error(str(exc))
         print(json.dumps(result, indent=2))
-        if args.apply:
-            print("Merged. Restart Codex, then review and trust entries in /hooks.", file=sys.stderr)
+        if args.apply and not args.remove:
+            if args.client == "codex":
+                print("Merged. Restart Codex, then review and trust entries in /hooks.", file=sys.stderr)
+            else:
+                print(f"Merged {LABELS[args.client]} hooks. Start a new session using this configuration.",
+                      file=sys.stderr)
         return 0
     if args.action == "hook":
         try:
-            return hook(Store(args.state_dir))
+            with hook_deadline():
+                return hook(Store(args.state_dir), args.client, args.instance)
         except Exception:
-            print("{}")
+            if args.client == "codex":
+                print("{}")
             return 0
     store = Store(args.state_dir)
     if args.action == "herdr-focus":
@@ -177,7 +239,7 @@ def main(argv=None):
         except (OSError, ValueError) as exc:
             parser.error(str(exc))
     if args.action == "run":
-        return launch(store, args.command, args.label)
+        return launch(store, args.command, args.label, args.client, args.instance)
     if args.action == "export":
         print(json.dumps(export_snapshot(store.read())))
     elif args.action == "status":

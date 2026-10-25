@@ -19,7 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT))
 from mxbridge import __version__
-from mxbridge.install import definition, install
+from mxbridge.adapters import CLIENTS, LABELS
+from mxbridge.install import (combine_targets, definition, install, require_cli, target,
+                              targets_from_manifest, validate_kiro_profile)
 from mxbridge.state import atomic_json
 
 ITEMS = ("bridge.py", "mxbridge", "plugin", "scripts", "tests", "docs", "README.md",
@@ -123,6 +125,13 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--prefix", type=Path, default=Path(os.environ.get("XDG_DATA_HOME", Path.home()/".local/share"))/"codex-mx-bridge")
     p.add_argument("--codex-home", type=Path, default=Path(os.environ.get("CODEX_HOME", Path.home()/".codex")))
+    p.add_argument("--client", dest="clients", action="append", choices=CLIENTS,
+                   help="Client to install; repeat for multiple clients (default: codex)")
+    p.add_argument("--claude-settings", type=Path)
+    p.add_argument("--agent-config", type=Path, action="append",
+                   help="Existing Kiro profile; repeat to select multiple profiles")
+    p.add_argument("--kiro-format", choices=("v2", "v3"), default="v2")
+    p.add_argument("--instance", default="")
     p.add_argument("--python", help="Interpreter selected by install.sh")
     p.add_argument("--hooks-only", action="store_true")
     p.add_argument("--dry-run", action="store_true", help="Plan only; no downloads or install changes")
@@ -175,7 +184,8 @@ def back_up_packaged_plugins(plugins, prefix):
         print(f"Previous bridge package backed up to {backup}")
 
 
-def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shutil.which, next_steps=True):
+def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shutil.which,
+            next_steps=True, hook_targets=None):
     platform = sys.platform if platform is None else platform
     if platform not in {"darwin", "linux"}:
         raise InstallError("Run the installer on macOS or Linux")
@@ -192,24 +202,62 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
         raise InstallError("Choose a dedicated install directory, not a home/source/system root")
     print(f"Python: {sys.version.split()[0]}")
     print(f"Install directory: {prefix}")
-    print(f"Codex config: {codex_home}")
+    if hook_targets is None:
+        selected = []
+        for client in dict.fromkeys(args.clients or ["codex"]):
+            profiles = (args.agent_config or [None]) if client == "kiro" else [None]
+            for profile in profiles:
+                selected.append(target(client, codex_home=codex_home,
+                    claude_settings=args.claude_settings, agent_config=profile,
+                    kiro_format=args.kiro_format, instance=args.instance))
+    else:
+        selected = targets_from_manifest({"hook_targets": hook_targets})
+    manifest_path = prefix/"installation.json"
+    previous = None
+    if manifest_path.is_file():
+        with manifest_path.open("rb") as stream:
+            raw = stream.read(1024 * 1024 + 1)
+        if len(raw) > 1024 * 1024:
+            raise InstallError("Installation manifest exceeds 1 MiB")
+        previous = json.loads(raw)
+    remembered = targets_from_manifest(previous) if previous is not None else []
+    registered = combine_targets(remembered, selected)
+    for item in selected:
+        print(f"{LABELS[item['client']]} config: {item['path']}")
     print("Mode: hooks/export only" if hooks_only else "Mode: Mac hooks and Logitech plugin")
-    config = codex_home/"config.toml"
-    if config.exists():
-        hooks_enabled_text(config.read_text(encoding="utf-8"))
-    hooks = codex_home/"hooks.json"
     # Validate existing definitions before installing dependencies or touching files.
-    install(hooks, definition(root/"bridge.py"), apply=False)
+    previews = []
+    for item in selected:
+        client, path = item["client"], Path(item["path"])
+        options = dict(client=client, kiro_format=item["kiro_format"])
+        if client == "codex":
+            config = path.parent/"config.toml"
+            if config.exists():
+                hooks_enabled_text(config.read_text(encoding="utf-8"))
+        elif client == "kiro" and not path.is_file():
+            raise InstallError("An installed Kiro profile is missing; select an existing --agent-config")
+        previews.append(install(path, definition(root/"bridge.py", instance=item["instance"],
+                                                 **options), **options))
     if args.dry_run:
-        print("Plan: stage source; create Python 3.15 venv; self-check; back up/merge hooks; enable hooks if disabled; write launcher.")
+        print("Plan: stage source; create Python 3.15 venv; self-check each client; back up/merge selected hooks; write launcher.")
+        if any(t["client"] == "codex" for t in selected):
+            print("Plan: enable explicitly disabled Codex hooks if needed.")
         if not hooks_only:
             print("Plan: locate Options+ SDK; obtain .NET 8 if needed; build plugin; back up/write development link.")
         if with_pets:
             print("Plan: install optional Pillow 13; import/enable the supplied local sheet if specified.")
         print("No changes made. Hook trust and device assignments remain manual.")
         return 0
-    if not which("codex"):
-        raise InstallError("Codex CLI is missing from PATH; install it first, then rerun")
+    executables = {}
+    try:
+        for client in dict.fromkeys(t["client"] for t in selected):
+            executables[client] = require_cli(client, runner=runner, which=which)
+        for item, preview in zip(selected, previews):
+            if item["client"] == "kiro":
+                validate_kiro_profile(preview, executables["kiro"], runner=runner,
+                                      cwd=Path(item["path"]).parent)
+    except ValueError as exc:
+        raise InstallError(str(exc)) from exc
     if not hooks_only and not args.sdk.expanduser().is_file():
         if args.install_options and which("brew") and not args.no_downloads:
             runner([which("brew"), "install", "--cask", "logi-options+"], check=True)
@@ -242,13 +290,19 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
                 raise InstallError("Pet import failed: " + str(exc.stderr or exc)[-1500:]) from exc
             pet_id = json.loads(result.stdout)["pet"]
     # Use a separate state directory, never overwrite existing live agent rows.
-    with tempfile.TemporaryDirectory(prefix="mx-install-check-") as folder:
-        payload = json.dumps(dict(session_id="install-check", hook_event_name="SessionStart", cwd="/install/check"))
-        result = runner([str(python), str(release/"bridge.py"), "--state-dir", folder, "hook"],
-                        input=payload, capture_output=True, text=True, check=True)
-        state_file = Path(folder)/"state.json"
-        if result.stdout.strip() != "{}" or not state_file.is_file() or json.loads(state_file.read_text())["rows"][0]["session_id"] != "install-check":
-            raise InstallError("Installed hook self-check failed; live hooks were not changed")
+    for client, instance in dict.fromkeys((t["client"], t["instance"]) for t in selected):
+        with tempfile.TemporaryDirectory(prefix="mx-install-check-") as folder:
+            event = "agentSpawn" if client == "kiro" else "SessionStart"
+            payload = json.dumps(dict(session_id="install-check", hook_event_name=event, cwd="/install/check"))
+            cmd = [str(python), str(release/"bridge.py"), "--state-dir", folder, "hook",
+                   "--client", client, "--instance", instance]
+            result = runner(cmd, input=payload, capture_output=True, text=True, check=True)
+            state_file = Path(folder)/"state.json"
+            rows = json.loads(state_file.read_text())["rows"] if state_file.is_file() else []
+            expected = "{}" if client == "codex" else ""
+            if (result.stdout.strip() != expected or len(rows) != 1 or
+                    rows[0]["session_id"] != "install-check" or rows[0].get("client") != client):
+                raise InstallError(f"Installed {LABELS[client]} hook self-check failed; live hooks were not changed")
     plugin_link = None
     if not hooks_only:
         dotnet = get_dotnet(prefix, args.no_downloads, runner)
@@ -269,8 +323,12 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
             shutil.copy2(plugin_link, plugin_link.with_name(plugin_link.name+f".mx-backup-{time.time_ns()}"))
         plugin_link.write_text(str(package)+"\n", encoding="utf-8")
     # Apply only after runtime, self-check, and plugin build have passed.
-    enable_hooks(config)
-    install(hooks, definition(release/"bridge.py", str(python)), apply=True)
+    for item in selected:
+        options = dict(client=item["client"], kiro_format=item["kiro_format"])
+        if item["client"] == "codex":
+            enable_hooks(Path(item["path"]).parent/"config.toml")
+        install(item["path"], definition(release/"bridge.py", str(python),
+                instance=item["instance"], **options), apply=True, **options)
     if pet_id is not None or args.motion is not None:
         cmd = [str(python), str(release/"bridge.py"), "display"]
         if pet_id is not None:
@@ -283,11 +341,17 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
     launcher = bin_dir/"codex-mx"
     launcher.write_text("#!/bin/sh\nexec "+shlex.join([str(python), str(release/"bridge.py")])+ ' "$@"\n', encoding="utf-8")
     launcher.chmod(0o700)
+    old = previous or {}
+    keep_plugin = platform == "darwin" and hooks_only and bool(old.get("plugin_link"))
+    saved_codex = next((str(Path(t["path"]).parent) for t in selected if t["client"] == "codex"),
+                       old.get("codex_home", str(codex_home)))
     atomic_json(prefix/"installation.json", dict(version=__version__, python=str(python),
-        release=str(release), codex_home=str(codex_home), launcher=str(launcher),
-        hooks_only=hooks_only, plugin_link=str(plugin_link) if plugin_link else None,
-        plugin_release=str(release) if plugin_link else None,
-        sdk=str(args.sdk.expanduser().resolve()) if not hooks_only else None))
+        release=str(release), codex_home=saved_codex, launcher=str(launcher),
+        hook_targets=registered,
+        hooks_only=hooks_only and not keep_plugin,
+        plugin_link=str(plugin_link) if plugin_link else old.get("plugin_link") if keep_plugin else None,
+        plugin_release=str(release) if plugin_link else old.get("plugin_release") if keep_plugin else None,
+        sdk=str(args.sdk.expanduser().resolve()) if not hooks_only else old.get("sdk") if keep_plugin else None))
     print("Installed and self-check passed.")
     print(f"Bridge command: {shlex.quote(str(launcher))} status")
     print(f"Remote Python path: {python}")
@@ -295,7 +359,11 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
     if hooks_only:
         print("Mac collector arguments: "+shlex.join(["--remote-python", str(python), "--remote-script", str(release/"bridge.py")]))
     if next_steps:
-        print("Restart Codex, then review and trust the bridge entries in /hooks (required by Codex).")
+        if any(t["client"] == "codex" for t in selected):
+            print("Restart Codex, then review and trust the bridge entries in /hooks (required by Codex).")
+        others = sorted({LABELS[t["client"]] for t in selected if t["client"] != "codex"})
+        if others:
+            print("Start new sessions for: " + ", ".join(others) + ". Use the selected Kiro profile.")
         if not hooks_only:
             print("Restart Logi Plugin Service in Options+, then map Agent slot 1–9 and Agent pages.")
     return 0

@@ -33,6 +33,23 @@ var roundtrip = ViewModel.Parse(JsonSerializer.Serialize(state, ViewModel.Json))
 Check(roundtrip.Rows[0].ItermId == "abc", "wire property naming");
 try { ViewModel.Parse("{\"schema_version\":2}"); throw new Exception("schema accepted"); }
 catch (JsonException) { count++; }
+var clients = ViewModel.Parse("""
+    {"schema_version":1,"rows":[
+      {"key":"old","name":"project","status":"READY","valid_until":200},
+      {"key":"claude","name":"project","client":"claude","status":"TURN ERROR","valid_until":200},
+      {"key":"kiro","name":"project","client":"kiro","status":"WORKING","valid_until":200}
+    ],"remotes":{"linux":{"received_at":100,"rows":[
+      {"key":"remote","client":"kiro","status":"WORKING","valid_until":200,"iterm_id":"untrusted"}
+    ]}}}
+    """);
+var clientTiles = ViewModel.Tiles(clients, 100);
+Check(clientTiles[0].Client == "codex" && clientTiles[0].Header == "local", "legacy client display preserved");
+Check(clientTiles[1].Header == "Claude · local" && clientTiles[1].Text.Contains("TURN ERROR"),
+      "Claude label and turn error reach text tiles");
+Check(clientTiles[2].Header == "Kiro · local", "Kiro client label");
+Check(clientTiles[3].Client == "kiro" && clientTiles[3].Header == "Kiro · linux",
+      "remote source and client both displayed");
+Check(clientTiles[3].ItermId == "" && !clientTiles[3].Herdr, "new remote clients have no focus target");
 if (args.Length == 1)
 {
     var wire = ViewModel.Parse(File.ReadAllText(args[0]));
@@ -42,6 +59,10 @@ if (args.Length == 1)
     var herdr = wire.Rows.Single(r => r.Herdr);
     Check(herdr.HerdrSocket == options.Bindings.Single().SocketPath, "Python Herdr socket/binding contract");
     Check(herdr.SessionId == "herdr-contract", "Python native session identity contract");
+    Check(wire.Rows.Single(r => r.Client == "claude").Status == "TURN ERROR",
+          "Python Claude error contract");
+    Check(wire.Rows.Single(r => r.Client == "kiro").LastEvent == "preToolUse",
+          "Python Kiro native event contract");
 }
 Console.WriteLine($"PASS: {count} view-model checks");
 
@@ -60,6 +81,7 @@ SpriteCheck(DisplayPlan.Animation("APPROVAL?") == ("waiting", true), "permission
 SpriteCheck(DisplayPlan.Animation("WORKING") == ("running", true), "work pose");
 SpriteCheck(DisplayPlan.Animation("TURN STOP") == ("review", true), "stop is review, not success");
 SpriteCheck(DisplayPlan.Animation("EXIT ERROR") == ("failed", true), "error pose");
+SpriteCheck(DisplayPlan.Animation("TURN ERROR") == ("failed", true), "Claude turn error pose");
 SpriteCheck(DisplayPlan.Animation("OFFLINE") == ("idle", false), "offline stays still");
 SpriteCheck(DisplayPlan.Frame(6, 4, true, 0.24) == 0 && DisplayPlan.Frame(6, 4, true, 0.25) == 1, "frame pacing");
 SpriteCheck(DisplayPlan.Frame(6, 4, true, 1.5) == 0, "loop wraps");

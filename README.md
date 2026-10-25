@@ -1,6 +1,6 @@
 # Codex MX Bridge
 
-Display Codex CLI lifecycle events on Logitech MX Creative Console. Runs beside
+Display Codex, Claude Code, and Kiro CLI lifecycle events on Logitech MX Creative Console. Runs beside
 Herdr and can collect Linux-hosted agents over SSH. This is a working source
 implementation with portable tests and an SDK-validated plugin package; physical
 hardware and macOS integration still need the acceptance checks below.
@@ -19,6 +19,8 @@ available; see [pet display setup](docs/PET-DISPLAY.md).
 
 * Python 3.15 bridge using only the standard library: hook handler, atomic local
   state, optional process launcher, hook installer, SSH collector, and simulator.
+* Explicit [Claude Code and Kiro CLI integrations](docs/CLAUDE-KIRO.md), with
+  separate session identities and settings that survive bridge upgrades.
 * C# .NET 8 plugin built against the official Logi Actions SDK `PluginApi.dll`.
   Nine slot actions, a page adjustment for the dial, and a next-page button.
 * Optional local pet sprite-sheet import and animated button theme, with status
@@ -103,8 +105,8 @@ From this checkout:
 bash update.sh
 ```
 
-This installs the current checkout using the existing runtime and Codex config
-location. It selects a compatible cached SDK, rebuilds the plugin, and restarts
+This installs the current checkout using the existing runtime and registered hook
+configuration paths. It selects a compatible cached SDK, rebuilds the plugin, and restarts
 Logi Plugin Service on Mac. Pet assets/settings, agent state, terminal bindings,
 and button assignments are retained. Old releases and an installation-manifest
 backup remain available.
@@ -212,9 +214,10 @@ These are observations, not a complete agent state machine. In particular,
 | `READY` | Session started or resumed |
 | `WORKING` | Prompt submitted, tool returned, or compaction finished |
 | `TOOL` | A supported local tool is about to run |
-| `APPROVAL?` | Codex was about to request permission |
+| `APPROVAL?` | Codex or Claude was about to request permission |
 | `COMPACT` | Compaction started |
 | `TURN STOP` | Main turn reached the Stop hook; another hook may continue it |
+| `TURN ERROR` | Claude reported a turn failure; a new prompt can resume the session |
 | `STOPPED` | Subagent reached SubagentStop; continuation is still possible |
 | `INTERRUPTED` | Main turn interrupted |
 | `CLOSED` | SessionEnd observed, or optional wrapper child exited with code 0 |

@@ -133,7 +133,7 @@ internal static class PetDisplay
         "APPROVAL?" => new BitmapColor(110, 65, 0),
         "WORKING" or "TOOL" or "COMPACT" => new BitmapColor(0, 55, 95),
         "TURN STOP" or "STOPPED" => new BitmapColor(0, 70, 40),
-        "EXIT ERROR" or "READ ERROR" => new BitmapColor(105, 20, 30),
+        "EXIT ERROR" or "TURN ERROR" or "READ ERROR" => new BitmapColor(105, 20, 30),
         _ => new BitmapColor(32, 38, 48)
     };
 
@@ -150,7 +150,7 @@ internal static class PetDisplay
             int w = Math.Max(1, (int)(_manifest.FrameWidth*scale)), h = Math.Max(1, (int)(_manifest.FrameHeight*scale));
             var background = Background(tile.Status);
             b.Clear(background);
-            DrawLabel(b, $"{tile.Host}\n{tile.Name}", 0, header, background);
+            DrawLabel(b, $"{tile.Header}\n{tile.Name}", 0, header, background);
             b.DrawImage(frame, (b.Width-w)/2, header+(b.Height-header-footer-h)/2, w, h);
             DrawLabel(b, tile.Status, b.Height-footer, footer, background);
             var image = b.ToImage();

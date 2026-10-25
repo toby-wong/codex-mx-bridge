@@ -1,18 +1,24 @@
-"""Private, locked, atomic file transport. Does not read Codex transcripts."""
+"""Private, locked, atomic file transport. Does not read agent transcripts."""
 from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
 import tempfile
 import time
+from .adapters import LABELS, normalize
+from .adapters.codex import EVENTS
+from .adapters.common import clean
 
-EVENTS = (
-    "SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse",
-    "PermissionRequest", "PostToolUse", "PreCompact", "PostCompact",
-    "SubagentStart", "SubagentStop", "Stop", "Interrupt",
-)
 FINAL = {"CLOSED", "EXIT ERROR", "STOPPED"}
 MAX_ROWS = 256
+EVENT_STATUS = {
+    "SessionStart": "READY", "SessionEnd": "CLOSED", "UserPromptSubmit": "WORKING",
+    "PreToolUse": "TOOL", "PermissionRequest": "APPROVAL?", "PostToolUse": "WORKING",
+    "PostToolUseFailure": "WORKING", "PreCompact": "COMPACT", "PostCompact": "WORKING",
+    "SubagentStart": "WORKING", "SubagentStop": "STOPPED", "Stop": "TURN STOP",
+    "StopFailure": "TURN ERROR", "Interrupt": "INTERRUPTED",
+}
+STATUSES = set(EVENT_STATUS.values()) | {"EXIT ERROR", "STALE", "NO HOOKS"}
 
 
 def default_dir():
@@ -20,12 +26,6 @@ def default_dir():
         return Path(os.environ["MX_CODEX_STATE_DIR"]).expanduser()
     # Deliberately identical on macOS/Linux; the plugin uses this default on Mac.
     return Path.home() / ".local" / "state" / "codex-mx-bridge"
-
-
-def clean(value, limit=80):
-    if not isinstance(value, str):
-        return ""
-    return "".join(c for c in value if c.isprintable())[:limit]
 
 
 def empty():
@@ -118,9 +118,10 @@ def focus_target(env):
                 tty=clean(env.get("MX_CODEX_TTY"), 128) if local and not herdr else "")
 
 
-def new_row(state, key, session, name, now, env, kind="session"):
+def new_row(state, key, session, name, now, env, kind="session", client="codex", instance=""):
     state["next_order"] += 1
-    row = dict(key=key, session_id=session, name=clean(name) or "Codex", kind=kind,
+    row = dict(key=key, session_id=session, name=clean(name) or LABELS[client], kind=kind,
+               client=client, source_instance=instance,
                order=state["next_order"], status="READY", last_event="",
                updated_at=now, valid_until=now + 900, turn_id="",
                run_id=clean(env.get("MX_CODEX_RUN_ID"), 128), agent_id="",
@@ -129,41 +130,48 @@ def new_row(state, key, session, name, now, env, kind="session"):
     return row
 
 
-def apply_event(state, payload, env=None, now=None):
+def apply_event(state, payload, env=None, now=None, *, client="codex", instance=""):
     env = os.environ if env is None else env
     now = time.time() if now is None else now
-    event = payload.get("hook_event_name")
-    sid = clean(payload.get("session_id"), 512)
-    if event not in EVENTS or not sid:
+    observed = normalize(client, payload, instance)
+    if observed is None:
         return False
-    agent = clean(payload.get("agent_id"), 512) if event.startswith("Subagent") else ""
-    if event.startswith("Subagent") and not agent:
-        return False
-    key = sid + ("/agent/" + agent if agent else "")
-    run_id = clean(env.get("MX_CODEX_RUN_ID"), 128)
-    state["rows"] = [r for r in state["rows"] if r["key"] != "@run/" + run_id]
-    row = next((r for r in state["rows"] if r["key"] == key), None)
+    event, sid, agent = observed.name, observed.session_id, observed.child_id
+    key = observed.key
+    # A nested CLI must not join another client's launcher heartbeat/exit scope.
+    run_id = (clean(env.get("MX_CODEX_RUN_ID"), 128)
+              if env.get("MX_BRIDGE_CLIENT", "codex") == client and
+              env.get("MX_BRIDGE_INSTANCE", "") == instance else "")
+    state["rows"] = [r for r in state["rows"] if not (
+        run_id and r["key"] == "@run/" + run_id and
+        r.get("client", "codex") == client and r.get("source_instance", "") == instance)]
+    row = next((r for r in state["rows"] if r["key"] == key and
+                r.get("client", "codex") == client and
+                r.get("source_instance", "") == instance), None)
     if row is None:
-        name = clean(env.get("MX_CODEX_LABEL")) or Path(str(payload.get("cwd") or "Codex")).name
-        if agent:
-            name = clean(payload.get("agent_type")) or "Subagent"
-        row = new_row(state, key, sid, name, now, env, "subagent" if agent else "session")
+        name = observed.label if agent else clean(env.get("MX_CODEX_LABEL")) or observed.label
+        row = new_row(state, key, sid, name, now, env, "subagent" if agent else "session",
+                      client, instance)
         row["agent_id"] = agent
+        row["run_id"] = run_id
     # A compact SessionStart may occur mid-turn; do not reset the observed state.
-    status = {
-        "SessionStart": "READY", "SessionEnd": "CLOSED", "UserPromptSubmit": "WORKING",
-        "PreToolUse": "TOOL", "PermissionRequest": "APPROVAL?", "PostToolUse": "WORKING",
-        "PreCompact": "COMPACT", "PostCompact": "WORKING", "SubagentStart": "WORKING",
-        "SubagentStop": "STOPPED", "Stop": "TURN STOP", "Interrupt": "INTERRUPTED",
-    }[event]
-    turn = clean(payload.get("turn_id"), 512)
+    status = EVENT_STATUS[event]
+    turn = observed.turn_id
     # A tool result from an older turn must not undo the latest turn's Stop.
-    if event in {"PreToolUse", "PostToolUse", "PermissionRequest"}:
+    tool_event = event in {"PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest"}
+    if client != "codex" and row["turn_id"] and turn and turn != row["turn_id"]:
+        if event not in {"UserPromptSubmit", "SessionStart", "SubagentStart"}:
+            return False
+    if tool_event:
         if row["turn_id"] and turn and turn != row["turn_id"]:
             return False
-        if row["status"] in {"TURN STOP", "INTERRUPTED", "CLOSED"}:
-            return False
-    if event == "SessionStart" and payload.get("source") == "compact":
+        stopped = {"TURN STOP", "TURN ERROR", "INTERRUPTED", "CLOSED", "EXIT ERROR", "STOPPED"}
+        if row["status"] in stopped:
+            # Synchronous PreToolUse is fresh activity after a Stop hook's
+            # continuation. A late result alone must not restart the animation.
+            if client == "codex" or event != "PreToolUse" or row["status"] in {"CLOSED", "EXIT ERROR"}:
+                return False
+    if event == "SessionStart" and observed.source == "compact":
         status = row["status"]
     if event == "SessionStart":
         # Resume/fork can attach the same Codex identity to a different terminal.
@@ -172,17 +180,22 @@ def apply_event(state, payload, env=None, now=None):
     elif row.get("herdr") and env.get("HERDR_ENV") == "1":
         # Populate old rows after an upgrade, without restarting an active chat.
         row.update(focus_target(env))
-    row.update(status=status, last_event=event, updated_at=now,
+    row.update(status=status, last_event=observed.native_name, updated_at=now,
                valid_until=now + (45 if run_id else 900))
     if run_id:
         row["run_id"] = run_id
     if turn:
         row["turn_id"] = turn
+    elif client != "codex" and (event == "UserPromptSubmit" or
+                               event == "SessionStart" and observed.source != "compact"):
+        row["turn_id"] = ""
+    state.setdefault("hook_health", {})[client] = dict(last_received_at=now,
+                                                       last_event=observed.native_name)
     return True
 
 
-def run_start(state, run_id, name, env, now):
-    new_row(state, "@run/" + run_id, "", name, now, env).update(
+def run_start(state, run_id, name, env, now, client="codex", instance=""):
+    new_row(state, "@run/" + run_id, "", name, now, env, client=client, instance=instance).update(
         status="NO HOOKS", last_event="LauncherStart", valid_until=now + 45)
 
 

@@ -8,6 +8,7 @@ public sealed class Row
     public string SessionId { get; set; } = "";
     public string Name { get; set; } = "Codex";
     public string Kind { get; set; } = "session";
+    public string Client { get; set; } = "codex";
     public string Status { get; set; } = "READY";
     public string LastEvent { get; set; } = "";
     public string ItermId { get; set; } = "";
@@ -36,9 +37,16 @@ public sealed class State
 
 public sealed record Tile(string Key, string Name, string Status, string Host,
                           string ItermId = "", string Tty = "", string Kind = "session",
-                          bool Herdr = false, string SessionId = "", string HerdrSocket = "")
+                          bool Herdr = false, string SessionId = "", string HerdrSocket = "",
+                          string Client = "codex")
 {
-    public string Text => $"{Host}\n{(Kind == "subagent" ? "> " : "")}{Name}\n{Status}";
+    public string Header => Client switch
+    {
+        "claude" => $"Claude · {Host}",
+        "kiro" => $"Kiro · {Host}",
+        _ => Host
+    };
+    public string Text => $"{Header}\n{(Kind == "subagent" ? "> " : "")}{Name}\n{Status}";
 }
 
 public static class ViewModel
@@ -61,7 +69,7 @@ public static class ViewModel
         foreach (var r in state.Rows.OrderBy(r => r.Order))
             list.Add(new(r.Key, Short(r.Name), Status(r), "local", r.Herdr ? "" : r.ItermId,
                          r.Herdr ? "" : r.Tty, r.Kind, r.Herdr, r.SessionId,
-                         r.Herdr ? r.HerdrSocket : ""));
+                         r.Herdr ? r.HerdrSocket : "", r.Client));
         foreach (var (host, remote) in state.Remotes.OrderBy(p => p.Key, StringComparer.Ordinal))
         {
             bool offline = remote.Error.Length > 0 || now > remote.ReceivedAt + 15;
@@ -69,7 +77,7 @@ public static class ViewModel
                 list.Add(new("remote/" + host, "SSH", "OFFLINE", Short(host)));
             foreach (var r in remote.Rows.OrderBy(r => r.Order))
                 list.Add(new("remote/" + host + "/" + r.Key, Short(r.Name),
-                    offline ? "OFFLINE" : Status(r), Short(host), Kind: r.Kind));
+                    offline ? "OFFLINE" : Status(r), Short(host), Kind: r.Kind, Client: r.Client));
         }
         if (state.DroppedRows > 0)
             list.Add(new("overflow", "History cap", "PRUNED " + state.DroppedRows, "bridge"));

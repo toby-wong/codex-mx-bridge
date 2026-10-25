@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT))
 from mxbridge.focus import bind, make_binding, read_bindings, socket_path
+from mxbridge.install import targets_from_manifest
 from mxbridge.state import Store, default_dir
 from scripts.install_local import InstallError, parse_args as installer_args, perform as install
 
@@ -116,6 +117,7 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, installer=
     if prefix in {Path(prefix.anchor), Path.home().resolve(), root.resolve()} or prefix in root.resolve().parents:
         raise InstallError("Choose the dedicated bridge install directory, not a home/source/system root")
     manifest = read_installation(prefix)
+    hook_targets = targets_from_manifest(manifest)
     hooks_only = manifest["hooks_only"] or platform == "linux"
     if args.iterm_id is not None and args.bind_herdr is None:
         raise InstallError("--iterm-id requires --bind-herdr")
@@ -145,7 +147,8 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, installer=
     if sdk is not None:
         print(f"Build SDK: {sdk}")
     if args.dry_run:
-        installer(installer_args(options), root=root, platform=platform, runner=runner, next_steps=False)
+        installer(installer_args(options), root=root, platform=platform, runner=runner,
+                  next_steps=False, hook_targets=hook_targets)
         if binding:
             print(f"Plan: bind Herdr socket {binding['socket_path']} to the selected outer iTerm2 pane.")
         if not hooks_only and not args.no_restart:
@@ -154,7 +157,8 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, installer=
 
     backup = prefix / f"installation.json.mx-backup-{time.time_ns()}"
     shutil.copy2(prefix / "installation.json", backup)
-    installer(installer_args(options), root=root, platform=platform, runner=runner, next_steps=False)
+    installer(installer_args(options), root=root, platform=platform, runner=runner,
+              next_steps=False, hook_targets=hook_targets)
     if binding:
         directory = Store(args.state_dir.expanduser()).directory
         bind(directory, binding["socket_path"], binding["iterm_id"])
@@ -167,7 +171,10 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, installer=
             raise InstallError(f"Files upgraded, but the service reload failed: {exc}") from exc
     elif not hooks_only:
         print("Plugin reload deferred; restart Logi Plugin Service to load the new build.")
-    print("Review the updated Codex hooks in /hooks; restart/resume Codex if it still uses the old hook path.")
+    if any(t["client"] == "codex" for t in hook_targets):
+        print("Review the updated Codex hooks in /hooks; restart/resume Codex if it still uses the old hook path.")
+    if any(t["client"] != "codex" for t in hook_targets):
+        print("Start new Claude/Kiro sessions to load their updated hook commands.")
     return 0
 
 

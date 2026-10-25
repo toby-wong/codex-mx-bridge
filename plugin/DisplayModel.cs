@@ -56,7 +56,7 @@ public static class DisplayPlan
         "WORKING" or "TOOL" or "COMPACT" => ("running", true),
         "APPROVAL?" => ("waiting", true),
         "TURN STOP" or "STOPPED" => ("review", true),
-        "EXIT ERROR" => ("failed", true),
+        "EXIT ERROR" or "TURN ERROR" => ("failed", true),
         "READY" => ("idle", true),
         _ => ("idle", false) // stale/offline/closed never appear to keep working
     };

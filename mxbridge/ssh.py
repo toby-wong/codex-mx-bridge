@@ -5,7 +5,8 @@ import re
 import shlex
 import subprocess
 import time
-from .state import FINAL, MAX_ROWS, clean
+from .adapters import CLIENTS
+from .state import FINAL, MAX_ROWS, STATUSES, clean
 
 
 def command(host, script, python="python3.15", remote_state=None):
@@ -33,20 +34,21 @@ def decode(raw, now, elapsed=0):
     if len(data["rows"]) > MAX_ROWS:
         raise ValueError("Too many remote rows")
     result = []
-    statuses = {"READY", "WORKING", "TOOL", "APPROVAL?", "COMPACT", "STOPPED",
-                "TURN STOP", "INTERRUPTED", "CLOSED", "EXIT ERROR", "STALE", "NO HOOKS"}
     for i, item in enumerate(data["rows"]):
-        if not isinstance(item, dict) or item.get("status") not in statuses:
+        if (not isinstance(item, dict) or item.get("status") not in STATUSES or
+                item.get("client", "codex") not in CLIENTS):
             raise ValueError("Invalid remote row")
         # Rebuild an allowlist, never trust executable paths or local focus IDs.
         row = {k: clean(item.get(k), 512 if k in {"key", "session_id"} else 80)
                for k in ("key", "session_id", "name", "kind", "status", "last_event")}
         if not row["key"]:
             raise ValueError("Missing row key")
+        row.update(client=item.get("client", "codex"),
+                   source_instance=clean(item.get("source_instance")))
         ttl, age = float(item.get("valid_until", 0)), float(item.get("updated_at", 0))
         if not math.isfinite(ttl) or not math.isfinite(age) or ttl < 0 or age < 0:
             raise ValueError("Invalid remote timing")
-        row.update(order=i, iterm_id="", tty="", run_id="", agent_id="", turn_id="",
+        row.update(order=i, iterm_id="", tty="", herdr_socket="", run_id="", agent_id="", turn_id="",
                    herdr=bool(item.get("herdr")), updated_at=now - age - elapsed,
                    valid_until=now + max(0, min(ttl, 900) - elapsed))
         result.append(row)

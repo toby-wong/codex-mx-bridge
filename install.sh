@@ -22,6 +22,11 @@ Usage: bash install.sh [options]
   --hooks-only          Linux/server hooks and export; no Logitech/.NET install
   --prefix PATH         Install location (default: ~/.local/share/codex-mx-bridge)
   --codex-home PATH     Codex config location (defaults to CODEX_HOME or ~/.codex)
+  --client NAME         codex (default), claude, or kiro; repeat for multiple
+  --claude-settings P   Claude settings file (default: CLAUDE_CONFIG_DIR/settings.json)
+  --agent-config PATH   Existing Kiro agent profile; repeat to select profiles
+  --kiro-format v2|v3   Kiro hook object (default) or inline array; no migration
+  --instance NAME      Optional namespace for otherwise identical session IDs
   --python PATH         Use this stable Python 3.15 executable
   --sdk PATH            Override the macOS PluginApi.dll location
   --install-options     Install missing Options+ with an existing Homebrew
@@ -35,9 +40,10 @@ Usage: bash install.sh [options]
 
 Downloads a private uv/Python runtime when needed. The installer copies the
 project to a stable location, creates an isolated Python 3.15 environment,
-preserves Herdr hooks, enables Codex hooks when explicitly disabled, checks the
-installed bridge, and (on Mac) builds and links the Logitech plugin. Codex must
-already be installed. Hook trust and Options+ button assignments are manual.
+preserves other hooks, checks each selected client, and (on Mac) builds and links
+the Logitech plugin. Selected CLIs must already be installed. Codex hook
+enablement applies only when Codex is selected. Hook trust and Options+ button
+assignments are manual.
 HELP
             exit 0 ;;
     esac

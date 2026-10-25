@@ -1,6 +1,46 @@
 # Validation record
 
-Date: 24 October 2026, Australia/Sydney.
+Latest validation: 25 October 2026, Australia/Sydney.
+
+## Claude Code and Kiro hooks — 25 October 2026
+
+Validated on macOS with Python 3.15, .NET 8, native Claude Code 2.1.308
+(vendor installation 2.1.308.1314), and Kiro CLI 2.34.0.
+
+| Check | Observed result |
+| --- | --- |
+| `python3.15 scripts/test_all.py` | 110 Python tests; 27 view-model/contract, 19 sprite, 88 Herdr focus, and 6 socket checks passed |
+| Release plugin build against `LogiPluginTool` 6.1.4.22672 `PluginApi.dll` | Passed, zero warnings and errors |
+| Native Claude lifecycle smoke | Real `SessionStart`, `UserPromptSubmit`, `Stop`, and `SessionEnd` dispatch; one loopback model request; one closed Claude row |
+| Kiro `agent validate --path` on generated temporary profiles | Both legacy object and current array hook formats accepted |
+| Isolated Kiro `agent upgrade --dry-run` after changing only bridge hooks | Existing migration metadata remained valid; permissions were preserved |
+| Bash syntax and `git diff --check` | Passed |
+
+The automated tests cover cross-client/session/child identity, old-turn events,
+stop continuation, shared-state concurrent writers, client-specific silent
+failure, missing runtimes, stalled stdin, SSH metadata, display labels, and
+Codex-only Herdr focus. Real staged installs/upgrades run in temporary directories
+with stubbed client version/validation commands. They preserve other handlers
+and access rules, retain registered configuration paths, and leave Codex settings
+alone when only Claude/Kiro are selected.
+
+The optional Claude smoke test uses a temporary config, tools disabled, no MCP
+servers, a fake API key, and a deterministic loopback Messages API fixture.
+macOS `sandbox-exec` denies outbound network access except to that fixture.
+It checks the real CLI dispatch and verifies that prompt/response text is absent
+from bridge state. Run it with the native executable, not a vendor launcher that
+may configure IDE settings:
+
+```sh
+python3.15 tests/claude_hook_smoke.py --claude-bin /absolute/path/to/native/claude
+```
+
+Kiro's native hook dispatch during a real chat is not yet observed. Its profile
+validation, exact generated shell commands, and payload handling have separate
+coverage. Claude tool, permission, compaction, child, and failure events have
+fixture coverage but were not triggered by the native lifecycle smoke.
+Live hook activation, new-client LCD rendering, and button focus remain runtime
+checks after following [the setup guide](CLAUDE-KIRO.md).
 
 ## Focus script loading fix — 25 October 2026
 

@@ -63,6 +63,35 @@ states. TUI notifications such as `approval-requested` are terminal/UI signals,
 not additional external `notify` events. No `on_turn_start`/`on_turn_end` config
 keys or Claude-specific `Notification` hook are assumed.
 
+## Claude Code and Kiro CLI
+
+Added 25 October 2026. See [setup and event coverage](CLAUDE-KIRO.md).
+Primary references:
+
+* Claude hooks: `https://code.claude.com/docs/en/hooks`
+* Kiro hook migration: `https://kiro.dev/docs/cli/v3/hooks-migration/`
+* Kiro hook events/actions: `https://kiro.dev/docs/hooks/types/` and
+  `https://kiro.dev/docs/hooks/actions/`
+* Kiro profile compatibility: `https://kiro.dev/docs/cli/v3/agent-config/`
+
+Claude uses `session_id`, optional `prompt_id`, and child `agent_id`; Kiro uses
+`session_id` and its documented legacy/current event spellings. Input passes
+through an explicit client adapter before the shared state machine. Native
+Codex keys and missing-client defaults remain compatible; other clients use a
+hash of their full validated identity tuple. New fields are optional within
+wire schema 1 and are allowlisted by SSH decoding.
+
+Claude and Kiro return empty stdout and exit zero. The generated commands
+handle missing interpreters, and the Python hook bounds stdin/processing with
+a one-second POSIX timer. Claude's `onFailure: continue` requires 2.1.295+.
+Kiro profile edits preserve existing access rules and use the installed CLI's
+validator. Selecting a hook shape does not migrate permissions or select the
+runtime engine. A V3 profile containing legacy trust fields without a permissions
+block is rejected before installation.
+
+Native client dispatch and physical device coverage must be assessed separately
+from configuration validation; current evidence is in [validation](VALIDATION.md).
+
 ## Logitech Actions SDK
 
 This project uses the C# API that runs inside Logi Plugin Service. The assembly
@@ -130,7 +159,8 @@ The runtime is pinned to stable Python 3.15 (`.python-version`, project metadata
 entry-point check, installer venv, and CI template). The shell bootstrap uses a
 private [uv install](https://docs.astral.sh/uv/reference/installer/) and
 [managed Python](https://docs.astral.sh/uv/guides/install-python/) when needed.
-An older interpreter still returns advisory `{}` for a hook invocation, but
+An older interpreter still returns advisory `{}` for a Codex hook invocation
+and empty output for Claude/Kiro hooks, but
 normal bridge commands reject it. Installed hooks always name the 3.15 venv
 interpreter explicitly.
 

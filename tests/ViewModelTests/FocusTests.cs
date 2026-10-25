@@ -112,6 +112,12 @@ internal static class FocusTests
         }
         focused = Agent();
 
+        foreach (var client in new[] { "claude", "kiro" })
+        {
+            calls.Clear();
+            await Reject(() => Focus(tile with { Client = client }), "supports Codex sessions only");
+            Check(calls.Count == 0, "another client's ID cannot select a Codex pane");
+        }
         foreach (var invalid in new[] { tile with { Herdr = false }, tile with { Host = "linux" },
                                         tile with { HerdrSocket = "" }, tile with { SessionId = "" } })
         {
