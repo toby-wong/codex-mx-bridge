@@ -2,6 +2,35 @@
 
 Latest validation: 25 October 2026, Australia/Sydney.
 
+## Legacy Herdr rows and configurable labels — 25 October 2026
+
+| Check | Observed result |
+| --- | --- |
+| `python3.15 scripts/test_all.py` | 113 Python tests; 27 view-model/contract, 19 sprite, 24 configurable label, 108 Herdr focus, and 6 socket checks passed |
+| Release plugin build against `LogiPluginTool` 6.1.4.22672 `PluginApi.dll` | Passed, zero warnings and errors |
+| Production resolver against live state and Herdr RPC | Slot 3 resolved by exact native session ID to `wP:p4`; slot 4 had no live identity match |
+| `bash update.sh --no-downloads` | Installed release `0.3.0-08e6273ee6a1`, refreshed the three registered clients and restarted Logi Plugin Service |
+| Plugin rendering after restart | `render-status.txt` recorded a successful 116 × 116 pet draw with the new plugin |
+| Live `display.json` reload | Status caption off/on observed in 0.608/0.488 seconds, including CLI invocation, with the same service PID |
+
+The legacy focus checks cover rows without a socket, uniqueness across bound
+servers, unreachable servers and explicit-socket isolation. Existing terminal
+preflight, identity recheck and focus response checks remain in place.
+The live mapping probe made only read requests and did not select a pane.
+
+Label checks cover independent captions, pet-only layout, name overrides,
+local/remote/client isolation, optional name catalog loading and renaming,
+invalid settings, and preserving labels across other display changes. CLI
+tests verify that display changes do not create or rewrite agent state.
+The installed plugin reported each live setting in `display-status.txt`.
+The selected pet, animation rate and motion setting were preserved; all
+captions were restored to enabled after the check. The reload receipt is
+stored locally under the install prefix at
+`backups/label-reload-verification-2026-10-25.json`.
+
+The physical button press and LCD appearance remain unverified; successful
+rendering in the plugin does not establish legibility on the device.
+
 ## Claude Code and Kiro hooks — 25 October 2026
 
 Validated on macOS with Python 3.15, .NET 8, native Claude Code 2.1.308

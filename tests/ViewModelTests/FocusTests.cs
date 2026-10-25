@@ -79,6 +79,12 @@ internal static class FocusTests
         Check(calls.SequenceEqual(new[] { "agent.list", "iterm.check", "agent.get", "agent.focus", "iterm.select" }),
               "validate terminal and current identity before Herdr focus, then foreground iTerm");
 
+        calls.Clear();
+        Check(await Focus(tile with { HerdrSocket = "" }) == PaneId,
+              "legacy rows resolve their native chat through an explicit server binding");
+        Check(calls.SequenceEqual(new[] { "agent.list", "iterm.check", "agent.get", "agent.focus", "iterm.select" }),
+              "legacy lookup retains all identity and terminal checks");
+
         foreach (var agents in new[] { Array.Empty<JsonElement>(), new[] { Agent(kind: "path") },
                                       new[] { Agent(provider: "claude") }, new[] { Agent(session: "another-chat") } })
         {
@@ -119,7 +125,7 @@ internal static class FocusTests
             Check(calls.Count == 0, "another client's ID cannot select a Codex pane");
         }
         foreach (var invalid in new[] { tile with { Herdr = false }, tile with { Host = "linux" },
-                                        tile with { HerdrSocket = "" }, tile with { SessionId = "" } })
+                                        tile with { HerdrSocket = "relative" }, tile with { SessionId = "" } })
         {
             calls.Clear();
             await Reject(() => Focus(invalid), "No local Herdr identity");
@@ -130,6 +136,37 @@ internal static class FocusTests
             HerdrFocusOptions.Parse("{\"schema_version\":1,\"bindings\":[]}"), Api, Terminal,
             CancellationToken.None), "Bind this Herdr session");
         Check(calls.Count == 0, "unbound socket never accessed");
+
+        var secondSocket = "/tmp/mx-other-herdr.sock";
+        var twoBindings = new HerdrFocusOptions { SchemaVersion = 1, Bindings = new()
+        {
+            new() { SocketPath = SocketPath, ItermId = ItermId },
+            new() { SocketPath = secondSocket, ItermId = ItermId }
+        }};
+        var inspected = new List<string>();
+        bool secondMatches = false, secondOffline = false;
+        Task<JsonElement> AcrossServers(string socket, string method, object parameters, CancellationToken cancellation)
+        {
+            Check(method == "agent.list", "resolution alone never changes focus");
+            inspected.Add(socket);
+            if (socket == secondSocket && secondOffline) throw new IOException("server offline");
+            var agents = socket == SocketPath || secondMatches ? new[] { Agent() } : Array.Empty<JsonElement>();
+            return Task.FromResult(JsonSerializer.SerializeToElement(new { type = "agent_list", agents }));
+        }
+        var legacy = tile with { HerdrSocket = "" };
+        var resolved = await HerdrFocus.ResolveAsync(legacy, twoBindings, AcrossServers, CancellationToken.None);
+        Check(resolved.Socket == SocketPath && inspected.Count == 2,
+              "legacy resolution checks every configured server before choosing a unique match");
+        secondMatches = true;
+        await Reject(() => HerdrFocus.ResolveAsync(legacy, twoBindings, AcrossServers, CancellationToken.None),
+                     "More than one");
+        secondOffline = true;
+        await Reject(() => HerdrFocus.ResolveAsync(legacy, twoBindings, AcrossServers, CancellationToken.None),
+                     "server offline");
+        inspected.Clear();
+        resolved = await HerdrFocus.ResolveAsync(tile, twoBindings, AcrossServers, CancellationToken.None);
+        Check(resolved.Socket == SocketPath && inspected.SequenceEqual(new[] { SocketPath }),
+              "an explicit socket never falls back to a different server");
 
         foreach (string invalid in new[]
         {
@@ -155,6 +192,28 @@ internal static class FocusTests
         if (HerdrFocus.Text(result, "type") != "agent_list")
             throw new Exception("Unexpected live Herdr response");
         Console.WriteLine($"PASS: read-only Herdr socket probe ({result.GetProperty("agents").GetArrayLength()} agents)");
+    }
+
+    public static async Task ProbeMap(string statePath, string bindingsPath)
+    {
+        var state = ViewModel.Parse(File.ReadAllText(statePath));
+        var options = HerdrFocusOptions.Parse(File.ReadAllText(bindingsPath));
+        var tiles = ViewModel.Tiles(state, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        for (int index = 0; index < tiles.Count; index++)
+        {
+            var tile = tiles[index];
+            if (!tile.Herdr || tile.Host != "local") continue;
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            try
+            {
+                var target = await HerdrFocus.ResolveAsync(tile, options, HerdrSocket.RequestAsync, deadline.Token);
+                Console.WriteLine($"MATCH slot={index + 1}; session={tile.SessionId}; pane={target.Pane}; socket={target.Socket}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"UNAVAILABLE slot={index + 1}; session={tile.SessionId}; reason={ex.Message}");
+            }
+        }
     }
 
     public static async Task ProbeScript(string binary)

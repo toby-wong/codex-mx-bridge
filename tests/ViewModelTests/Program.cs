@@ -95,7 +95,9 @@ manifest.Animations["idle"] = new[] { "../secret.png" };
 try { PetManifest.Parse(JsonSerializer.Serialize(manifest, ViewModel.Json)); throw new Exception("path traversal accepted"); }
 catch (JsonException) { spriteChecks++; }
 Console.WriteLine($"PASS: {spriteChecks} sprite display checks");
+Console.WriteLine($"PASS: {DisplayTests.Run()} configurable label checks");
 Console.WriteLine($"PASS: {await FocusTests.Run()} Herdr focus checks");
 Console.WriteLine($"PASS: {await SocketTests.Run()} Herdr socket checks");
 if (args is ["--probe-herdr", var socket]) await FocusTests.Probe(socket);
 if (args is ["--probe-script", var binary]) await FocusTests.ProbeScript(binary);
+if (args is ["--probe-focus-map", var statePath, var bindingsPath]) await FocusTests.ProbeMap(statePath, bindingsPath);

@@ -37,6 +37,45 @@ class DisplayConfigTests(unittest.TestCase):
             (Path(folder)/"display.json").write_text("invalid")
             self.assertEqual(configure(folder, mode="text"), DEFAULT_DISPLAY)
 
+    def test_label_switches_and_chat_names_survive_other_display_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/"display.json"
+            path.write_text(json.dumps(dict(DEFAULT_DISPLAY, show_status=False,
+                show_client=False, name_overrides={"chat-key": "My chat", "remote/desktop/chat-key": "Build"})))
+            result = configure(folder, fps=2)
+            self.assertFalse(result["show_status"])
+            self.assertFalse(result["show_client"])
+            self.assertEqual(result["name_overrides"]["remote/desktop/chat-key"], "Build")
+            self.assertEqual(read_display(folder), result)
+            result = configure(folder, show_name=False, show_location=False)
+            self.assertFalse(result["show_name"])
+            self.assertFalse(result["show_location"])
+
+    def test_invalid_label_values_never_replace_settings(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/"display.json"
+            configure(folder, mode="text")
+            before = path.read_bytes()
+            for change in (dict(show_status="off"), dict(show_name=1),
+                           dict(name_overrides={"chat": "bad\nname"}), dict(name_overrides=None),
+                           dict(name_overrides={"chat": "x"*81})):
+                with self.subTest(change=change), self.assertRaises(ValueError):
+                    validate_display(dict(DEFAULT_DISPLAY, **change))
+            with self.assertRaises(ValueError):
+                configure(folder, show_name="yes")
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_cli_can_toggle_label_visibility_without_touching_agent_state(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = subprocess.run([sys.executable, str(ROOT/"bridge.py"), "--state-dir", folder,
+                "display", "--show-status", "off", "--show-location", "off", "--use-chat-names", "on"],
+                capture_output=True, text=True, check=True)
+            value = json.loads(result.stdout)
+            self.assertFalse(value["show_status"])
+            self.assertFalse(value["show_location"])
+            self.assertTrue(value["use_chat_names"])
+            self.assertFalse((Path(folder)/"state.json").exists())
+
     def test_layout_requires_core_states_and_stays_inside_sheet(self):
         with self.assertRaises(ValueError):
             layout_for((1536,1873))

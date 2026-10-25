@@ -43,6 +43,8 @@ internal delegate Task<JsonElement> HerdrRequest(string socket, string method, o
                                                CancellationToken cancellation);
 internal delegate Task ItermSelect(string id, string tty, bool checkOnly, CancellationToken cancellation);
 
+internal sealed record HerdrFocusTarget(HerdrBinding Binding, string Socket, string Pane, string Terminal);
+
 internal static class HerdrFocus
 {
     internal static string Text(JsonElement value, string key) =>
@@ -62,32 +64,51 @@ internal static class HerdrFocus
         return agent;
     }
 
-    public static async Task<string> FocusAsync(Tile tile, HerdrFocusOptions options,
-        HerdrRequest request, ItermSelect terminal, CancellationToken cancellation)
+    internal static async Task<HerdrFocusTarget> ResolveAsync(Tile tile, HerdrFocusOptions options,
+        HerdrRequest request, CancellationToken cancellation)
     {
         // Herdr matching below is verified only for Codex's native identity.
         // Another client's session ID must never select a matching Codex pane.
         if (tile.Client != "codex")
             throw new InvalidOperationException("Herdr button focus currently supports Codex sessions only.");
         if (!tile.Herdr || tile.Host != "local" || string.IsNullOrEmpty(tile.SessionId) ||
-            !HerdrFocusOptions.ValidSocket(tile.HerdrSocket))
+            (tile.HerdrSocket.Length > 0 && !HerdrFocusOptions.ValidSocket(tile.HerdrSocket)))
             throw new InvalidOperationException("No local Herdr identity; wait for a hook from the updated bridge.");
-        var socket = Path.GetFullPath(tile.HerdrSocket);
-        var binding = options.Bindings.SingleOrDefault(b =>
-            Path.GetFullPath(b.SocketPath) == socket) ??
+        // Running clients can keep an older hook command after a bridge upgrade.
+        // For their socket-less rows, search only explicitly bound local servers
+        // and require one exact native identity across the complete search.
+        var bindings = options.Bindings.Where(b => tile.HerdrSocket.Length == 0 ||
+            Path.GetFullPath(b.SocketPath) == Path.GetFullPath(tile.HerdrSocket)).ToArray();
+        if (bindings.Length == 0)
             throw new InvalidOperationException("Bind this Herdr session with codex-mx herdr-focus bind.");
-        var list = await request(socket, "agent.list", new { }, cancellation);
-        if (Text(list, "type") != "agent_list" || !list.TryGetProperty("agents", out var agents) ||
-            agents.ValueKind != JsonValueKind.Array)
-            throw new JsonException("Unsupported Herdr agent list");
-        var matches = agents.EnumerateArray().Where(a => Matches(a, tile.SessionId)).ToArray();
-        if (matches.Length != 1)
-            throw new InvalidOperationException(matches.Length == 0
+        var matches = new List<HerdrFocusTarget>();
+        foreach (var binding in bindings)
+        {
+            var socket = Path.GetFullPath(binding.SocketPath);
+            var list = await request(socket, "agent.list", new { }, cancellation);
+            if (Text(list, "type") != "agent_list" || !list.TryGetProperty("agents", out var agents) ||
+                agents.ValueKind != JsonValueKind.Array)
+                throw new JsonException("Unsupported Herdr agent list");
+            foreach (var agent in agents.EnumerateArray().Where(a => Matches(a, tile.SessionId)))
+            {
+                string pane = Text(agent, "pane_id"), terminalId = Text(agent, "terminal_id");
+                if (pane.Length == 0 || terminalId.Length == 0)
+                    throw new JsonException("Herdr did not report a pane and terminal identity");
+                matches.Add(new(binding, socket, pane, terminalId));
+            }
+        }
+        if (matches.Count != 1)
+            throw new InvalidOperationException(matches.Count == 0
                 ? "This Codex session has no live Herdr pane."
                 : "More than one Herdr pane reports this Codex session.");
-        string pane = Text(matches[0], "pane_id"), terminalId = Text(matches[0], "terminal_id");
-        if (pane.Length == 0 || terminalId.Length == 0)
-            throw new JsonException("Herdr did not report a pane and terminal identity");
+        return matches[0];
+    }
+
+    public static async Task<string> FocusAsync(Tile tile, HerdrFocusOptions options,
+        HerdrRequest request, ItermSelect terminal, CancellationToken cancellation)
+    {
+        var target = await ResolveAsync(tile, options, request, cancellation);
+        var (binding, socket, pane, terminalId) = target;
 
         // Fail before changing Herdr if the mapped Mac pane is gone or permission is denied.
         await terminal(binding.ItermId, "", true, cancellation);

@@ -13,9 +13,13 @@ internal static class PetDisplay
     private static string _fingerprint = "";
     private static string _renderStatus = "";
     private static bool _retry;
+    private static readonly ChatNameIndex ChatNames = new();
 
     public static bool Refresh(string root)
     {
+        string codexHome = Environment.GetEnvironmentVariable("CODEX_HOME") ??
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
+        bool namesChanged = ChatNames.Refresh(Path.Combine(codexHome, "session_index.jsonl"));
         string fingerprint;
         DisplayOptions options;
         PetManifest? manifest = null;
@@ -25,9 +29,9 @@ internal static class PetDisplay
         {
             string path = Path.Combine(root, "display.json");
             var info = new FileInfo(path);
-            if (info.Exists && info.Length > 8192) throw new InvalidDataException("display.json exceeds 8 KiB");
+            if (info.Exists && info.Length > DisplayOptions.MaxBytes) throw new InvalidDataException("display.json exceeds 64 KiB");
             var raw = info.Exists ? File.ReadAllText(path) : "{\"schema_version\":1,\"mode\":\"text\"}";
-            lock (Gate) if (raw == _fingerprint && !_retry) return false;
+            lock (Gate) if (raw == _fingerprint && !_retry) return namesChanged;
             options = DisplayOptions.Parse(raw);
             fingerprint = raw;
             if (options.Mode == "pet")
@@ -65,11 +69,18 @@ internal static class PetDisplay
                 if (!OperatingSystem.IsWindows())
                     File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
                 File.WriteAllText(Path.Combine(root, "display-status.txt"), error.Length == 0 ?
-                    $"{DateTimeOffset.UtcNow:O} mode={options.Mode}; fps={options.Fps}; animate={options.Animate}" :
+                    $"{DateTimeOffset.UtcNow:O} mode={options.Mode}; fps={options.Fps}; animate={options.Animate}; " +
+                    $"show_name={options.ShowName}; show_location={options.ShowLocation}; " +
+                    $"show_client={options.ShowClient}; show_status={options.ShowStatus}; use_chat_names={options.UseChatNames}" :
                     $"{DateTimeOffset.UtcNow:O} Text fallback: {error}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Trace.WriteLine(ex.Message); }
-        return changed;
+        return changed || namesChanged;
+    }
+
+    public static ButtonLabels Labels(Tile tile)
+    {
+        lock (Gate) return DisplayPlan.Labels(tile, _options, ChatNames.Names);
     }
 
     public static void Clear()
@@ -145,14 +156,15 @@ internal static class PetDisplay
             var file = FileFor(tile);
             if (file is null || _manifest is null || !_images.TryGetValue(file, out var frame)) return null;
             using var b = new BitmapBuilder(size);
-            int header = Math.Max(20, b.Height/4), footer = Math.Max(16, b.Height/6);
+            var labels = DisplayPlan.Labels(tile, _options, ChatNames.Names);
+            var (header, footer) = DisplayPlan.LabelHeights(labels, b.Height);
             double scale = Math.Min((b.Width-8.0)/_manifest.FrameWidth, (b.Height-header-footer-4.0)/_manifest.FrameHeight);
             int w = Math.Max(1, (int)(_manifest.FrameWidth*scale)), h = Math.Max(1, (int)(_manifest.FrameHeight*scale));
             var background = Background(tile.Status);
             b.Clear(background);
-            DrawLabel(b, $"{tile.Header}\n{tile.Name}", 0, header, background);
+            if (header > 0) DrawLabel(b, labels.Header, 0, header, background);
             b.DrawImage(frame, (b.Width-w)/2, header+(b.Height-header-footer-h)/2, w, h);
-            DrawLabel(b, tile.Status, b.Height-footer, footer, background);
+            if (footer > 0) DrawLabel(b, labels.Footer, b.Height-footer, footer, background);
             var image = b.ToImage();
             ReportRenderStatus($"pet:{_options.Pet}", $"Rendered pet {_options.Pet}; image={b.Width}x{b.Height}");
             return image;

@@ -1,8 +1,9 @@
 # Animated pet buttons
 
 Version 0.3.0 adds an optional local pet theme. Text remains the default. The
-bridge chooses an animation from its observed status and keeps the host/project
-header, exact status label and background colour visible. It does not mirror
+bridge chooses an animation from its observed status. Chat name, location,
+client and status labels are independently configurable; the background colour
+continues to reflect status. It does not mirror
 the desktop app's selected pet or derive status from the app's animation.
 
 ## Install and select
@@ -42,6 +43,65 @@ For a manual environment, install `.[pets]` or `Pillow==13.0.0`, then use
 `python3.15 bridge.py`. Pillow is required only for import: hooks, SSH and
 playback of imported frames do not need it. See [Pillow's Python support](https://pillow.readthedocs.io/en/stable/installation/python-support.html).
 
+## Configure button labels
+
+Edit `~/.local/state/codex-mx-bridge/display.json` to choose the captions on all
+agent buttons. The plugin rereads it every 500 ms; after installing the version
+with these controls, changing them needs no rebuild or service restart.
+Existing files that omit the new fields show every label by default.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `show_name` | `true` | Show the chat name, falling back to the existing project or agent label |
+| `show_location` | `true` | Show `local` or `remote: <host alias>` |
+| `show_client` | `true` | Show Codex, Claude or Kiro |
+| `show_status` | `true` | Show the exact observed state, such as `TOOL` or `TURN STOP` |
+| `use_chat_names` | `true` | Prefer a saved Codex chat name when available |
+| `name_overrides` | `{}` | Supply display names keyed by stable row identity |
+
+These switches also apply in text mode. In pet mode, hiding status text keeps
+the same status animation and background colour. Set all four `show_…` switches
+to `false` for just the pet; unused caption space becomes available to the
+sprite. Bridge errors and empty slots still show diagnostic text.
+
+The CLI preserves other settings when changing individual switches:
+
+```sh
+# Keep names and location, but communicate state through the pet.
+~/.local/share/codex-mx-bridge/bin/codex-mx display --show-status off
+# Show only the pet on populated agent buttons.
+~/.local/share/codex-mx-bridge/bin/codex-mx display \
+  --show-name off --show-location off --show-client off --show-status off
+# Restore all captions.
+~/.local/share/codex-mx-bridge/bin/codex-mx display \
+  --show-name on --show-location on --show-client on --show-status on
+```
+
+Saved local Codex names come from the optional
+`$CODEX_HOME/session_index.jsonl` name catalog, defaulting to
+`~/.codex/session_index.jsonl`. Renames reload while the plugin is running.
+Only `id` and `thread_name` are used; no conversation transcript or database
+is opened. Missing names retain the project/agent label. Claude, Kiro, child
+agents and remote rows retain their own existing labels unless overridden.
+
+For any client, add entries to `name_overrides` using keys from `state.json`:
+local entries use their key under `agents`; remote entries use
+`remote/<source alias>/<key under that source's agents>`. Use the whole key,
+including an `@client/…` prefix when present. Keys follow the chat when page
+positions change; they are not button numbers. For example:
+
+```json
+"name_overrides": {
+  "local-codex-session-id": "Bridge work",
+  "remote/clouddesk/remote-session-id": "Remote build"
+}
+```
+
+Replace those illustrative keys with actual row keys. Overrides take priority
+even when `use_chat_names` is `false`; that switch selects saved chat names or
+project labels for rows without an override. Names are local display metadata,
+are not written into agent state, and are not sent through SSH exports.
+
 ## Mapping and playback
 
 | Status | Animation |
@@ -50,8 +110,8 @@ playback of imported frames do not need it. See [Pillow's Python support](https:
 | WORKING, TOOL, COMPACT | running: focused work, not directional walking |
 | APPROVAL? | waiting |
 | TURN STOP, STOPPED | review; Stop does not prove success |
-| EXIT ERROR | failed |
-| STALE, OFFLINE, CLOSED, INTERRUPTED, NO HOOKS | still idle pose plus exact label |
+| EXIT ERROR, TURN ERROR | failed |
+| STALE, OFFLINE, CLOSED, INTERRUPTED, NO HOOKS | still idle pose; exact label when enabled |
 | Bridge errors / empty slots | text fallback |
 
 The requested rate defaults to 4 fps and is bounded to 1–8. Only visible slots
@@ -102,14 +162,27 @@ frames and `manifest.json`. Settings: `display.json` in the bridge state folder:
 
 ```json
 {
-  "schema_version": 1, "mode": "pet",
-  "pet": "buddy/0123456789abcdef", "fps": 4, "animate": true
+  "schema_version": 1,
+  "mode": "pet",
+  "pet": "buddy/0123456789abcdef",
+  "fps": 4,
+  "animate": true,
+  "show_name": true,
+  "show_location": true,
+  "show_client": true,
+  "show_status": true,
+  "use_chat_names": true,
+  "name_overrides": {}
 }
 ```
 
-Use a real imported revision, not the example above. Invalid settings, manifests,
+Keep your existing imported pet revision when editing labels. Settings are
+limited to 64 KiB, with at most 64 name overrides, keys up to 700 characters and
+names up to 80 characters. Control characters and blank keys/names are rejected.
+Invalid settings, manifests,
 missing frames or decoding errors fall back to text. Loading errors appear in
-`display-status.txt`. `render-status.txt` records a successful pet draw or a
+`display-status.txt`, which also records the active caption switches.
+`render-status.txt` records a successful pet draw or a
 rendering error, suppressing repeated identical results. Check both files when
 pet mode is enabled but the buttons show text.
 `display --mode text` also recovers from corrupt settings.

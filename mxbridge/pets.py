@@ -13,7 +13,10 @@ STANDARD = dict(idle=(0, 6), running_right=(1, 8), running_left=(2, 8),
                 waving=(3, 4), jumping=(4, 5), failed=(5, 8), waiting=(6, 6),
                 running=(7, 6), review=(8, 6))
 REQUIRED = {"idle", "running", "waiting", "review", "failed"}
-DEFAULT_DISPLAY = dict(schema_version=1, mode="text", pet="", fps=4, animate=True)
+DEFAULT_DISPLAY = dict(schema_version=1, mode="text", pet="", fps=4, animate=True,
+                       show_name=True, show_location=True, show_client=True,
+                       show_status=True, use_chat_names=True, name_overrides={})
+MAX_DISPLAY_BYTES = 65536
 PET_ID = re.compile(r"[a-zA-Z0-9_-]{1,48}/[a-f0-9]{16}")
 
 
@@ -28,9 +31,9 @@ def pillow():
 def read_display(directory):
     path = Path(directory)/"display.json"
     if not path.exists():
-        return dict(DEFAULT_DISPLAY)
-    if path.stat().st_size > 8192:
-        raise ValueError("display.json exceeds 8 KiB")
+        return validate_display(DEFAULT_DISPLAY)
+    if path.stat().st_size > MAX_DISPLAY_BYTES:
+        raise ValueError("display.json exceeds 64 KiB")
     return validate_display(json.loads(path.read_text(encoding="utf-8")))
 
 
@@ -45,7 +48,21 @@ def validate_display(value):
         raise ValueError("Choose an imported pet before enabling pet mode")
     if type(fps) is not int or not 1 <= fps <= 8 or type(animate) is not bool:
         raise ValueError("fps must be an integer from 1 to 8 and animate must be boolean")
-    return dict(schema_version=1, mode=mode, pet=pet, fps=fps, animate=animate)
+    labels = {key: value.get(key, True) for key in
+              ("show_name", "show_location", "show_client", "show_status", "use_chat_names")}
+    if any(type(v) is not bool for v in labels.values()):
+        raise ValueError("Display label switches must be boolean")
+    names = value.get("name_overrides", {})
+    if not isinstance(names, dict) or len(names) > 64 or any(
+            not isinstance(key, str) or not key.strip() or len(key) > 700 or not key.isprintable() or
+            not isinstance(name, str) or not name.strip() or len(name) > 80 or not name.isprintable()
+            for key, name in names.items()):
+        raise ValueError("Use at most 64 chat name overrides with printable keys and names")
+    result = dict(schema_version=1, mode=mode, pet=pet, fps=fps, animate=animate,
+                  **labels, name_overrides=dict(names))
+    if len(json.dumps(result, ensure_ascii=False).encode("utf-8")) > MAX_DISPLAY_BYTES:
+        raise ValueError("display.json exceeds 64 KiB")
+    return result
 
 
 def resolve_pet(directory, name):
@@ -63,14 +80,17 @@ def resolve_pet(directory, name):
     return target.relative_to(Path(directory)/"pets").as_posix()
 
 
-def configure(directory, *, mode=None, pet=None, fps=None, motion=None):
+def configure(directory, *, mode=None, pet=None, fps=None, motion=None, show_name=None,
+              show_location=None, show_client=None, show_status=None, use_chat_names=None):
     try:
         value = read_display(directory)
     except (ValueError, OSError):
         if mode != "text":
             raise
-        value = dict(DEFAULT_DISPLAY)  # Always allow an explicit return to text.
-    for key, val in (("mode", mode), ("fps", fps)):
+        value = validate_display(DEFAULT_DISPLAY)  # Always allow an explicit return to text.
+    for key, val in (("mode", mode), ("fps", fps), ("show_name", show_name),
+                     ("show_location", show_location), ("show_client", show_client),
+                     ("show_status", show_status), ("use_chat_names", use_chat_names)):
         if val is not None:
             value[key] = val
     if pet is not None:

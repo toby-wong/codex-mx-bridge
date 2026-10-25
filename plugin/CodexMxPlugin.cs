@@ -147,7 +147,8 @@ internal static class Dashboard
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);
                 File.WriteAllText(Path.Combine(Path.GetDirectoryName(StatePath)!, "focus-status.txt"),
-                    DateTimeOffset.UtcNow.ToString("O") + " " + (error.Length == 0 ? success : error));
+                    DateTimeOffset.UtcNow.ToString("O") + " " + (error.Length == 0 ? success : error) +
+                    $" | client={tile.Client}; key={tile.Key}; session={tile.SessionId}; host={tile.Host}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             finally { Interlocked.Exchange(ref _focusing, 0); }
@@ -206,7 +207,7 @@ public sealed class AgentSlotCommand : PluginDynamicCommand
         if (int.TryParse(actionParameter, out int slot) && slot is >= 0 and < 9) Dashboard.Focus(Dashboard.Get(slot));
     }
     protected override string GetCommandDisplayName(string actionParameter, PluginImageSize imageSize)
-        => TileFor(actionParameter)?.Text ?? $"{Dashboard.PageText}\nEmpty";
+        => TileFor(actionParameter) is { } tile ? PetDisplay.Labels(tile).Text : $"{Dashboard.PageText}\nEmpty";
     private static Tile? TileFor(string parameter) => int.TryParse(parameter, out int i) && i is >= 0 and < 9 ? Dashboard.Get(i) : null;
     protected override BitmapImage GetCommandImage(string actionParameter, PluginImageSize imageSize)
     {
@@ -216,7 +217,8 @@ public sealed class AgentSlotCommand : PluginDynamicCommand
         using var b = new BitmapBuilder(imageSize);
         var status = tile?.Status ?? "";
         b.Clear(PetDisplay.Background(status));
-        b.DrawText(tile?.Text ?? $"Page {Dashboard.PageText}\nEmpty");
+        string text = tile is null ? $"Page {Dashboard.PageText}\nEmpty" : PetDisplay.Labels(tile).Text;
+        if (text.Length > 0) b.DrawText(text);
         return b.ToImage();
     }
 }

@@ -2,8 +2,9 @@
 
 Pressing a local Herdr agent tile selects the pane currently reporting that
 Codex chat, then brings its configured iTerm2 window, tab, and pane forward.
-This requires the updated bridge hooks and plugin, Herdr's Codex integration,
-and one explicit binding for each local Herdr server.
+This requires the updated plugin, Herdr's Codex integration, and one explicit
+binding for each local Herdr server. Updated bridge hooks also record the
+specific server socket in each row.
 
 ## Bind the terminal
 
@@ -47,9 +48,11 @@ The command writes only the bridge's private `herdr-focus.json`; it does not
 start, attach, focus, or reconfigure Herdr.
 
 After the next accepted bridge hook, existing Herdr rows gain their local
-socket identity. If an older Codex process still runs the old hook command,
-reload/trust the updated hooks or restart that Codex session. Herdr must also
-have received its native Codex session ID through its own integration.
+socket identity. An older Codex process can retain the old hook command;
+socket-less rows can still focus when exactly one bound server reports that
+native chat ID. Reload/trust the updated hooks or restart that Codex session
+to populate its socket. Herdr must have received its native Codex session ID
+through its own integration.
 
 Inspect or remove bindings:
 
@@ -66,10 +69,14 @@ of the machine displayed in a client.
 
 ## What a press checks
 
-1. The tile is local and carries a Codex session ID and local Herdr socket.
-2. That exact socket has an explicit iTerm2 binding.
+1. The tile is local, marked as Herdr, and carries a Codex session ID.
+2. If the row records a socket, that exact socket has an explicit iTerm2
+   binding. For an older row without a socket, inspect only explicitly bound
+   local servers.
 3. `agent.list` identifies exactly one current Codex agent whose
-   `agent_session.kind` is `id` and whose value matches the chat.
+   `agent_session.kind` is `id` and whose value matches the chat. For a
+   socket-less row, every bound server must be reachable and exactly one
+   matching identity must exist across them all.
 4. The configured iTerm2 pane still exists and macOS permits AppleScript access.
 5. `agent.get` still reports the same chat, pane, and stable terminal identity.
 6. `agent.focus` selects it and returns the expected identity; the iTerm2
@@ -77,9 +84,11 @@ of the machine displayed in a client.
 
 The whole action has an eight-second deadline. Simultaneous button presses
 are ignored while a focus action is running. Errors appear in
-`~/.local/state/codex-mx-bridge/focus-status.txt`; the page action shows
-`NO FOCUS`. Missing bindings, ambiguous identities, disconnected servers,
-reused panes, or missing Mac panes fail visibly.
+`~/.local/state/codex-mx-bridge/focus-status.txt`, together with the selected
+row key, client and native session ID; the page action shows `NO FOCUS`.
+Missing bindings, ambiguous identities, disconnected servers, reused panes,
+or missing Mac panes fail visibly. A project name is never used to guess a
+chat, and a row with an explicit socket never falls back to another server.
 
 Herdr's public focus operation is session-wide and marks completion as seen.
 It can change the selected pane in other clients attached to the same server.
@@ -100,6 +109,21 @@ read-only responses from the user's running server, which reported version
 0.9.3/protocol 22. The public focus response was verified against upstream
 v0.9.3 source. Portable tests cover the identity checks, terminal preflight,
 binding management, source isolation, and bounded socket transport.
+
+To inspect current local Herdr row mappings without selecting a pane, run
+from the checkout with .NET 8 available:
+
+```sh
+dotnet run --project tests/ViewModelTests -- --probe-focus-map \
+  "$HOME/.local/state/codex-mx-bridge/state.json" \
+  "$HOME/.local/state/codex-mx-bridge/herdr-focus.json"
+```
+
+It runs the portable checks, then reports the unique live target or reason
+each Herdr row is unavailable. On 25 October, this resolved the legacy row at
+slot 3 to `wP:p4`; slot 4 had no matching native identity in the live server.
+Retained history can therefore appear on a button without having a current
+focus target.
 
 The new focus path still needs an on-device press with the intended Herdr
 client attached. It has not been used to change the user's active pane during

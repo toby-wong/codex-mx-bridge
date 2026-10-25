@@ -25,8 +25,9 @@ animations and status colours at 4 fps.
   separate session identities and settings that survive bridge upgrades.
 * C# .NET 8 plugin built against the official Logi Actions SDK `PluginApi.dll`.
   Nine slot actions, a page adjustment for the dial, and a next-page button.
-* Optional local pet sprite-sheet import and animated button theme, with status
-  labels, 1–8 requested fps, still poses, and text fallback. Import uses the
+* Optional local pet sprite-sheet import and animated button theme, with
+  configurable chat, location, client and status labels, 1–8 requested fps,
+  still poses, and text fallback. Import uses the
   optional Pillow 13 extra; hooks/SSH remain standard-library-only.
 * Direct iTerm2 pane focus on a button press. Local Herdr chats support focus
   with an explicit [terminal binding](docs/HERDR-FOCUS.md). Remote rows have no
@@ -190,8 +191,8 @@ From the updated project folder on the Mac, provide a local Codex/ChatGPT pet sh
 bash install.sh --with-pets --pet-sheet "$HOME/Downloads/my-pet.png" --pet-name buddy
 ```
 
-The pet theme animates work/wait/review/error poses and retains exact status
-labels. Default requested rate is 4 fps; motion can be disabled. Switch themes
+The pet theme animates work/wait/review/error poses. Default requested rate is
+4 fps; motion can be disabled. Switch themes
 without a rebuild after installing this plugin version:
 
 ```sh
@@ -199,6 +200,12 @@ without a rebuild after installing this plugin version:
 ~/.local/share/codex-mx-bridge/bin/codex-mx display --mode text
 ~/.local/share/codex-mx-bridge/bin/codex-mx display --mode pet --pet buddy --fps 4
 ```
+
+Chat name, local/remote location, client and status captions can each be hidden
+through `~/.local/state/codex-mx-bridge/display.json`. Hiding all captions leaves
+just the pet; hiding status text retains its state animation. Saved Codex chat
+names and explicit per-chat names are supported. Settings reload within 500 ms
+without reinstalling the plugin. See [button label controls](docs/PET-DISPLAY.md#configure-button-labels).
 
 No installable pet sprite pack is bundled or automatically extracted from the app.
 The README shows a rendered example. Supply a compatible PNG/WebP sheet;
@@ -230,7 +237,8 @@ These are observations, not a complete agent state machine. In particular,
 | `OFFLINE` | SSH poll failed, or collector has been silent for 15 seconds |
 | `NO DATA` / `READ ERROR` | Hook data missing or unreadable; inspect the bridge directory |
 
-Each tile shows a host label and project label. Child rows have a `>` prefix.
+By default, each tile shows its client, location and saved chat name or project
+label. These captions can be configured independently. Child rows have a `>` prefix.
 Rows retain registration order; active rows do not jump between keys on every
 event. Completed rows remain until cleared. Each host retains at most 256 local
 rows; eviction increments a visible `PRUNED` indicator. Page with the dial.

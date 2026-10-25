@@ -164,6 +164,8 @@ def main(argv=None):
     p.add_argument("--pet", help="Imported name or full revision ID")
     p.add_argument("--fps", type=int, choices=range(1,9))
     p.add_argument("--motion", choices=("on", "off"))
+    for flag in ("show-name", "show-location", "show-client", "show-status", "use-chat-names"):
+        p.add_argument("--" + flag, choices=("on", "off"))
     p = sub.add_parser("pet", help="Local sprite-sheet assets for this bridge")
     pets = p.add_subparsers(dest="pet_action", required=True)
     pets.add_parser("list")
@@ -226,8 +228,11 @@ def main(argv=None):
         from . import pets
         try:
             if args.action == "display":
-                if any(v is not None for v in (args.mode, args.pet, args.fps, args.motion)):
-                    result = pets.configure(store.directory, mode=args.mode, pet=args.pet, fps=args.fps, motion=args.motion)
+                labels = {key: None if getattr(args, key) is None else getattr(args, key) == "on"
+                          for key in ("show_name", "show_location", "show_client", "show_status", "use_chat_names")}
+                if any(v is not None for v in (args.mode, args.pet, args.fps, args.motion, *labels.values())):
+                    result = pets.configure(store.directory, mode=args.mode, pet=args.pet, fps=args.fps,
+                                            motion=args.motion, **labels)
                 else:
                     result = pets.read_display(store.directory)
             elif args.pet_action == "list":
