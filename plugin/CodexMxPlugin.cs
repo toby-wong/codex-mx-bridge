@@ -149,6 +149,8 @@ public sealed class AgentSlotCommand : PluginDynamicCommand
 {
     public AgentSlotCommand()
     {
+        // The live image already contains the labels; use the full button surface.
+        IsWidget = true;
         for (int i = 0; i < 9; i++) AddParameter(i.ToString(), $"Agent slot {i + 1}", "Agents");
     }
     protected override bool OnLoad() { Dashboard.Changed += Redraw; Dashboard.SlotFrameChanged += RedrawSlot; return true; }
@@ -166,7 +168,7 @@ public sealed class AgentSlotCommand : PluginDynamicCommand
     {
         var tile = TileFor(actionParameter);
         try { var petImage = PetDisplay.Render(tile, imageSize); if (petImage is not null) return petImage; }
-        catch (Exception ex) { Trace.WriteLine($"Pet frame render failed: {ex.Message}"); }
+        catch (Exception ex) { PetDisplay.ReportRenderError(ex); }
         using var b = new BitmapBuilder(imageSize);
         var status = tile?.Status ?? "";
         b.Clear(PetDisplay.Background(status));

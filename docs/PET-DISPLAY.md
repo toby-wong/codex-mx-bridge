@@ -108,7 +108,10 @@ frames and `manifest.json`. Settings: `display.json` in the bridge state folder:
 
 Use a real imported revision, not the example above. Invalid settings, manifests,
 missing frames or decoding errors fall back to text. Loading errors appear in
-`display-status.txt`. `display --mode text` also recovers from corrupt settings.
+`display-status.txt`. `render-status.txt` records a successful pet draw or a
+rendering error, suppressing repeated identical results. Check both files when
+pet mode is enabled but the buttons show text.
+`display --mode text` also recovers from corrupt settings.
 Treat packs as immutable; re-import changed artwork as a new revision and switch
 away before removing a selected pack.
 

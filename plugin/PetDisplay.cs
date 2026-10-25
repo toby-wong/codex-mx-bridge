@@ -11,6 +11,7 @@ internal static class PetDisplay
     private static PetManifest? _manifest;
     private static Dictionary<string, BitmapImage> _images = new();
     private static string _fingerprint = "";
+    private static string _renderStatus = "";
     private static bool _retry;
 
     public static bool Refresh(string root)
@@ -73,7 +74,40 @@ internal static class PetDisplay
 
     public static void Clear()
     {
-        lock (Gate) { _manifest = null; _images.Clear(); _fingerprint = ""; _retry = false; _options = new(); }
+        lock (Gate) { _manifest = null; _images.Clear(); _fingerprint = ""; _renderStatus = ""; _retry = false; _options = new(); }
+    }
+
+    public static void ReportRenderError(Exception error)
+    {
+        var message = $"Text fallback: {error.GetType().Name}: {error.Message}";
+        ReportRenderStatus(message, message);
+    }
+
+    private static void ReportRenderStatus(string key, string message)
+    {
+        lock (Gate)
+        {
+            if (_renderStatus == key) return;
+            _renderStatus = key;
+        }
+        try
+        {
+            var path = Path.Combine(Path.GetDirectoryName(Dashboard.StatePath)!, "render-status.txt");
+            File.WriteAllText(path, $"{DateTimeOffset.UtcNow:O} {message}");
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Trace.WriteLine(ex.Message); }
+    }
+
+    private static void DrawLabel(BitmapBuilder target, string text, int top, int height, BitmapColor background)
+    {
+        // Newer hosts add a parameter to the positioned DrawText overload.
+        // A separate canvas lets us use the binary-compatible simple overload.
+        using var label = new BitmapBuilder(target.Width, height);
+        label.Clear(background);
+        label.DrawText(text);
+        target.DrawImage(label.ToImage(), 0, top);
     }
 
     private static string? FileFor(Tile tile)
@@ -114,11 +148,14 @@ internal static class PetDisplay
             int header = Math.Max(20, b.Height/4), footer = Math.Max(16, b.Height/6);
             double scale = Math.Min((b.Width-8.0)/_manifest.FrameWidth, (b.Height-header-footer-4.0)/_manifest.FrameHeight);
             int w = Math.Max(1, (int)(_manifest.FrameWidth*scale)), h = Math.Max(1, (int)(_manifest.FrameHeight*scale));
-            b.Clear(Background(tile.Status));
-            b.DrawText($"{tile.Host}\n{tile.Name}", 0, 0, b.Width, header, BitmapColor.White);
+            var background = Background(tile.Status);
+            b.Clear(background);
+            DrawLabel(b, $"{tile.Host}\n{tile.Name}", 0, header, background);
             b.DrawImage(frame, (b.Width-w)/2, header+(b.Height-header-footer-h)/2, w, h);
-            b.DrawText(tile.Status, 0, b.Height-footer, b.Width, footer, BitmapColor.White);
-            return b.ToImage();
+            DrawLabel(b, tile.Status, b.Height-footer, footer, background);
+            var image = b.ToImage();
+            ReportRenderStatus($"pet:{_options.Pet}", $"Rendered pet {_options.Pet}; image={b.Width}x{b.Height}");
+            return image;
         }
     }
 }
