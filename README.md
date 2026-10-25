@@ -61,7 +61,8 @@ after a short locked write. The SSH collector normally polls every three seconds
 one collector runs per Linux host. Local collection needs no background server.
 
 State lives at `~/.local/state/codex-mx-bridge/state.json` on both systems.
-It retains a project basename or explicit label, IDs, event names, timestamps,
+Mac display settings live at `~/.config/codex-mx-bridge/display.json`.
+The state file retains a project basename or explicit label, IDs, event names, timestamps,
 and local terminal identifiers, including local Herdr socket paths. Prompt text,
 command arguments, tool results, and assistant messages are discarded. Remote exports remove terminal
 identifiers and do not recursively export other remote hosts.
@@ -202,7 +203,7 @@ without a rebuild after installing this plugin version:
 ```
 
 Chat name, local/remote location, client and status captions can each be hidden
-through `~/.local/state/codex-mx-bridge/display.json`. Hiding all captions leaves
+through `~/.config/codex-mx-bridge/display.json`. Hiding all captions leaves
 just the pet; hiding status text retains its state animation. Saved Codex chat
 names and explicit per-chat names are supported. Settings reload within 500 ms
 without reinstalling the plugin. See [button label controls](docs/PET-DISPLAY.md#configure-button-labels).

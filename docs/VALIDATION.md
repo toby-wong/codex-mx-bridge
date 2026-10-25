@@ -2,6 +2,28 @@
 
 Latest validation: 25 October 2026, Australia/Sydney.
 
+## Display config directory — 25 October 2026
+
+* 121 Python tests and 220 C# checks passed.
+* New checks cover `.config` precedence, legacy fallback, invalid preferred
+  settings, preserving existing values on the first write, private file
+  permissions, and isolation of custom state directories.
+* The release build passed with zero warnings/errors, and LogiPluginTool
+  packed and verified the updated plugin.
+
+The default settings path is now
+`~/.config/codex-mx-bridge/display.json`. Pet assets and runtime state still
+resolve from the state directory. The preview renderer uses the same settings
+lookup as the CLI.
+
+Installed release `0.3.0-a8a501347017`, then moved the existing display config
+to the new directory with a private backup. The plugin detected the path
+change without another restart. Status-caption off/on changes reloaded in
+0.571/0.468 seconds with the same service PID, and every original setting was
+restored. The old active config file was removed after backing it up.
+The CLI and preview reader both found the new file and the existing cat pack.
+Receipt: `~/.local/share/codex-mx-bridge/backups/config-directory-verification-2026-10-25.json`.
+
 ## Recent chat views — 25 October 2026
 
 * 118 Python tests passed, including creation-time persistence across resume

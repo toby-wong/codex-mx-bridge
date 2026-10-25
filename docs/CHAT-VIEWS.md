@@ -11,7 +11,7 @@ The normal view preserves local registration order, then remote sources.
 
 ## Select a view
 
-Edit `~/.local/state/codex-mx-bridge/display.json` and set `chat_view`:
+Edit `~/.config/codex-mx-bridge/display.json` and set `chat_view`:
 
 | Value | Buttons show |
 | --- | --- |
@@ -39,6 +39,9 @@ These settings reload on the existing 500 ms polling cycle once this plugin
 version is installed. The three recent views have one page. Switching back
 to `paged` exposes the retained history; filtering never deletes state.
 All views work with text and pets and combine local and remote rows.
+The plugin also reads the old state-folder config when the new file is absent.
+With a custom `--state-dir` or `MX_CODEX_STATE_DIR`, settings remain in that
+directory so isolated configurations stay separate.
 
 ## What the ordering means
 

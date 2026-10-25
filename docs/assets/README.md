@@ -41,9 +41,10 @@ With the optional Pillow dependency already installed, run from the repository:
 ~/.local/share/codex-mx-bridge/venv-3.15/bin/python scripts/render_readme_preview.py
 ```
 
-The script reads `display.json` and its selected pet pack from
-`~/.local/state/codex-mx-bridge/`; it does not change the live bridge configuration
-or session state. The demonstration uses a fixed 4 fps.
+The script reads `~/.config/codex-mx-bridge/display.json` and its selected pet
+pack under `~/.local/state/codex-mx-bridge/pets/`. It also supports the legacy
+state-folder config. It does not change the live bridge configuration or session
+state. The demonstration uses a fixed 4 fps.
 
 Use `--state-dir PATH` for another bridge directory, or `--pet-dir PATH` for a
 specific imported pack containing `manifest.json`. `--output-dir PATH` writes

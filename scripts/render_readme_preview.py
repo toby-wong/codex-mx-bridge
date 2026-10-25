@@ -8,11 +8,15 @@ from functools import lru_cache
 import json
 import os
 from pathlib import Path
+import sys
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from mxbridge.pets import read_display
+
 ASSETS = ROOT / "docs" / "assets"
 SIZE = (1440, 980)
 FPS = 4
@@ -84,7 +88,7 @@ def text(image, xy, value, face, size, fill=INK, bold=False, anchor="lt"):
 
 def read_pet(state_dir, pet_dir):
     if pet_dir is None:
-        settings = json.loads((state_dir / "display.json").read_text())
+        settings = read_display(state_dir)
         pet_dir = state_dir / "pets" / settings["pet"]
     manifest = json.loads((pet_dir / "manifest.json").read_text())
     frames = {}

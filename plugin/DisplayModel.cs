@@ -43,6 +43,26 @@ public sealed record ButtonLabels(string Header, string Footer)
     public string Text => string.Join("\n", new[] { Header, Footer }.Where(s => s.Length > 0));
 }
 
+public static class DisplayPaths
+{
+    public static string Preferred(string stateRoot, string? userHome = null)
+    {
+        string home = Path.GetFullPath(userHome ??
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        string state = Path.TrimEndingDirectorySeparator(Path.GetFullPath(stateRoot));
+        return state == Path.Combine(home, ".local", "state", "codex-mx-bridge")
+            ? Path.Combine(home, ".config", "codex-mx-bridge", "display.json")
+            : Path.Combine(state, "display.json");
+    }
+
+    public static string ReadLocation(string stateRoot, string? userHome = null)
+    {
+        string preferred = Preferred(stateRoot, userHome);
+        string legacy = Path.Combine(stateRoot, "display.json");
+        return !File.Exists(preferred) && File.Exists(legacy) ? legacy : preferred;
+    }
+}
+
 public sealed class PetManifest
 {
     public int SchemaVersion { get; set; }

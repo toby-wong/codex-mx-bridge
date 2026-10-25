@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from mxbridge.pets import (DEFAULT_DISPLAY, STANDARD, configure, import_pet, layout_for,
-                          list_pets, pillow, read_display, validate_display)
+                          list_pets, pillow, read_display, validate_display, display_path)
 
 try:
     from PIL import Image, ImageDraw
@@ -95,6 +95,57 @@ class DisplayConfigTests(unittest.TestCase):
                 with self.subTest(view=view), self.assertRaises(ValueError):
                     configure(folder, chat_view=view)
             self.assertEqual((Path(folder)/"display.json").read_bytes(), before)
+
+    def test_default_config_writes_to_config_and_preserves_legacy_settings(self):
+        with tempfile.TemporaryDirectory() as folder, patch("pathlib.Path.home", return_value=Path(folder)):
+            state = Path(folder)/".local/state/codex-mx-bridge"
+            state.mkdir(parents=True)
+            legacy = state/"display.json"
+            legacy.write_text(json.dumps(dict(DEFAULT_DISPLAY, mode="pet",
+                pet="buddy/0123456789abcdef", chat_view="recent_open", show_status=False)))
+            before = legacy.read_bytes()
+            preferred = Path(folder)/".config/codex-mx-bridge/display.json"
+            self.assertEqual(display_path(state), preferred)
+            self.assertEqual(display_path(state, for_read=True), legacy)
+            self.assertEqual(read_display(state)["chat_view"], "recent_open")
+            changed = configure(state, fps=2)
+            self.assertEqual(display_path(state, for_read=True), preferred)
+            self.assertEqual(json.loads(preferred.read_text()), changed)
+            self.assertEqual((changed["pet"], changed["chat_view"], changed["show_status"]),
+                             ("buddy/0123456789abcdef", "recent_open", False))
+            self.assertEqual(legacy.read_bytes(), before)
+            self.assertFalse((state/"state.json").exists())
+            self.assertFalse((preferred.parent/"pets").exists())
+            if sys.platform != "win32":
+                self.assertEqual(preferred.stat().st_mode & 0o777, 0o600)
+
+    def test_preferred_config_wins_and_invalid_settings_do_not_fall_back(self):
+        with tempfile.TemporaryDirectory() as folder, patch("pathlib.Path.home", return_value=Path(folder)):
+            state = Path(folder)/".local/state/codex-mx-bridge"
+            state.mkdir(parents=True)
+            (state/"display.json").write_text(json.dumps(DEFAULT_DISPLAY))
+            preferred = display_path(state)
+            preferred.parent.mkdir(parents=True)
+            preferred.write_text(json.dumps(dict(DEFAULT_DISPLAY, show_name=False, chat_view="newest")))
+            self.assertFalse(read_display(state)["show_name"])
+            self.assertEqual(read_display(state)["chat_view"], "newest")
+            preferred.write_text("invalid")
+            with self.assertRaises(ValueError):
+                read_display(state)
+            self.assertEqual(configure(state, mode="text"), DEFAULT_DISPLAY)
+            preferred.unlink()
+            self.assertEqual(read_display(state), DEFAULT_DISPLAY)
+
+    def test_custom_state_config_never_uses_the_home_display_settings(self):
+        with tempfile.TemporaryDirectory() as folder, patch("pathlib.Path.home", return_value=Path(folder)):
+            default = Path(folder)/".local/state/codex-mx-bridge"
+            configure(default, mode="text", chat_view="newest")
+            isolated = Path(folder)/"separate-state"
+            self.assertEqual(read_display(isolated), DEFAULT_DISPLAY)
+            configure(isolated, chat_view="recent")
+            self.assertEqual(display_path(isolated), isolated/"display.json")
+            self.assertEqual(read_display(isolated)["chat_view"], "recent")
+            self.assertEqual(read_display(default)["chat_view"], "newest")
 
     def test_layout_requires_core_states_and_stays_inside_sheet(self):
         with self.assertRaises(ValueError):

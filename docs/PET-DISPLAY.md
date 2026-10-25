@@ -45,7 +45,7 @@ playback of imported frames do not need it. See [Pillow's Python support](https:
 
 ## Configure button labels
 
-Edit `~/.local/state/codex-mx-bridge/display.json` to choose the captions on all
+Edit `~/.config/codex-mx-bridge/display.json` to choose the captions on all
 agent buttons. The plugin rereads it every 500 ms; after installing the version
 with these controls, changing them needs no rebuild or service restart.
 Existing files that omit the new fields show every label by default.
@@ -160,7 +160,8 @@ transport check, not official artistic/pet-upload validation.
 ## Files, recovery and limits
 
 Packs: `~/.local/state/codex-mx-bridge/pets/<name>/<revision>/`, containing PNG
-frames and `manifest.json`. Settings: `display.json` in the bridge state folder:
+frames and `manifest.json`.
+Settings: `~/.config/codex-mx-bridge/display.json`:
 
 ```json
 {
@@ -191,6 +192,18 @@ pet mode is enabled but the buttons show text.
 `display --mode text` also recovers from corrupt settings.
 Treat packs as immutable; re-import changed artwork as a new revision and switch
 away before removing a selected pack.
+
+Older installations can keep using
+`~/.local/state/codex-mx-bridge/display.json` until it is moved. The new config
+location takes precedence when both exist, and the CLI writes changes to the
+new location while preserving settings it read from the old file. Moving the
+file does not require moving pet packs. The plugin rechecks the config location
+on every polling cycle; `display-status.txt` records the path it is using.
+An invalid new config produces an error rather than silently using old settings.
+
+Custom state directories selected through `--state-dir` or
+`MX_CODEX_STATE_DIR` keep their own `display.json` beside the state file.
+This preserves isolated demos, tests and alternate installations.
 
 Use the original custom sheet or a sheet you exported/have permission to use.
 No supported API was verified for enumerating/exporting the desktop app's pets

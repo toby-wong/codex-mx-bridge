@@ -25,15 +25,16 @@ internal static class PetDisplay
         PetManifest? manifest = null;
         var images = new Dictionary<string, BitmapImage>();
         string error = "";
+        string configPath = "";
         try
         {
-            string path = Path.Combine(root, "display.json");
-            var info = new FileInfo(path);
+            configPath = DisplayPaths.ReadLocation(root);
+            var info = new FileInfo(configPath);
             if (info.Exists && info.Length > DisplayOptions.MaxBytes) throw new InvalidDataException("display.json exceeds 64 KiB");
-            var raw = info.Exists ? File.ReadAllText(path) : "{\"schema_version\":1,\"mode\":\"text\"}";
-            lock (Gate) if (raw == _fingerprint && !_retry) return namesChanged;
+            var raw = info.Exists ? File.ReadAllText(configPath) : "{\"schema_version\":1,\"mode\":\"text\"}";
+            fingerprint = configPath + "\n" + raw;
+            lock (Gate) if (fingerprint == _fingerprint && !_retry) return namesChanged;
             options = DisplayOptions.Parse(raw);
-            fingerprint = raw;
             if (options.Mode == "pet")
             {
                 string folder = Path.Combine(root, "pets", options.Pet.Replace('/', Path.DirectorySeparatorChar));
@@ -72,7 +73,7 @@ internal static class PetDisplay
                     $"{DateTimeOffset.UtcNow:O} mode={options.Mode}; fps={options.Fps}; animate={options.Animate}; " +
                     $"show_name={options.ShowName}; show_location={options.ShowLocation}; " +
                     $"show_client={options.ShowClient}; show_status={options.ShowStatus}; use_chat_names={options.UseChatNames}; " +
-                    $"chat_view={options.ChatView}" :
+                    $"chat_view={options.ChatView}; config_path={configPath}" :
                     $"{DateTimeOffset.UtcNow:O} Text fallback: {error}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Trace.WriteLine(ex.Message); }

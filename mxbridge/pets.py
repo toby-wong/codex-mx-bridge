@@ -29,8 +29,20 @@ def pillow():
     return Image
 
 
+def display_path(directory, *, for_read=False):
+    """Use .config for normal settings; keep custom state directories isolated."""
+    state = Path(os.path.abspath(directory))
+    home = Path.home()
+    legacy = state / "display.json"
+    path = (home / ".config/codex-mx-bridge/display.json"
+            if state == home / ".local/state/codex-mx-bridge" else legacy)
+    if for_read and not path.exists() and legacy.exists():
+        return legacy
+    return path
+
+
 def read_display(directory):
-    path = Path(directory)/"display.json"
+    path = display_path(directory, for_read=True)
     if not path.exists():
         return validate_display(DEFAULT_DISPLAY)
     if path.stat().st_size > MAX_DISPLAY_BYTES:
@@ -104,7 +116,9 @@ def configure(directory, *, mode=None, pet=None, fps=None, motion=None, show_nam
     if motion is not None:
         value["animate"] = motion == "on"
     value = validate_display(value)
-    atomic_json(Path(directory)/"display.json", value)
+    path = display_path(directory)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    atomic_json(path, value)
     return value
 
 
