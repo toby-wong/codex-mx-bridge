@@ -62,8 +62,8 @@ internal static class ChatViewTests
         var remote = ViewModel.Tiles(state, 200, "recent")[0];
         Check(remote.Key == "remote/desktop/chat-01" && remote.Client == "kiro",
               "recent activity merges normalized local and remote times without ID collisions");
-        Check(remote is { Herdr: false, ItermId: "", SessionId: "", HerdrSocket: "" },
-              "a recent remote tile cannot acquire a local focus target");
+        Check(remote is { Herdr: true, ItermId: "", SessionId: "native-1", HerdrSocket: "", RemoteHost: "desktop" },
+              "a recent remote tile retains source-scoped identity without acquiring a local focus target");
         Check(ViewModel.Tiles(state, 200, "newest")[0].Key == remote.Key,
               "known remote creation times participate in newest sorting");
         state.Remotes["desktop"].Rows[0].Status = "CLOSED";

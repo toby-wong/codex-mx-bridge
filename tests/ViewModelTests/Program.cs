@@ -21,8 +21,8 @@ state.Remotes["linux"] = new Remote { ReceivedAt = 100, Rows = new() {
 Check(ViewModel.Tiles(state, 110)[3].Status == "TOOL", "remote connected");
 Check(ViewModel.Tiles(state, 116)[3].Status == "OFFLINE", "collector disappeared");
 Check(ViewModel.Tiles(state, 110)[3].ItermId == "", "remote cannot focus local pane");
-Check(ViewModel.Tiles(state, 110)[3] is { Herdr: false, SessionId: "", HerdrSocket: "" },
-      "remote cannot supply Herdr focus identity");
+Check(ViewModel.Tiles(state, 110)[3] is { Herdr: true, SessionId: "herdr-chat", HerdrSocket: "", RemoteHost: "linux" },
+      "remote carries native identity and source without local socket authority");
 state.Remotes["linux"].Error = "SSH timeout";
 Check(ViewModel.Tiles(state, 110)[3].Status == "OFFLINE", "SSH failure is immediate");
 Check(ViewModel.PageCount(9) == 1 && ViewModel.PageCount(10) == 2, "pagination");
@@ -59,6 +59,14 @@ if (args.Length == 1)
     var herdr = wire.Rows.Single(r => r.Herdr);
     Check(herdr.HerdrSocket == options.Bindings.Single().SocketPath, "Python Herdr socket/binding contract");
     Check(herdr.SessionId == "herdr-contract", "Python native session identity contract");
+    var remoteBinding = options.RemoteBindings.Single();
+    Check(remoteBinding.Source == "remote-contract" && remoteBinding.SshTarget == "workbox" &&
+          remoteBinding.HerdrPath == "/home/user/.local/bin/herdr" && remoteBinding.RemoteSession == "work",
+          "Python remote Herdr binding contract");
+    var remoteHerdr = ViewModel.Tiles(wire, DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+                               .Single(t => t.RemoteHost == "remote-contract");
+    Check(remoteHerdr is { Herdr: true, SessionId: "herdr-contract", ItermId: "", Tty: "", HerdrSocket: "" },
+          "Python SSH decoder preserves native identity without importing Mac control targets");
     Check(wire.Rows.Single(r => r.Client == "claude").Status == "TURN ERROR",
           "Python Claude error contract");
     Check(wire.Rows.Single(r => r.Client == "kiro").LastEvent == "preToolUse",
@@ -101,7 +109,9 @@ Console.WriteLine($"PASS: {ChatViewTests.Run()} chat view checks");
 Console.WriteLine($"PASS: {LabelLayoutTests.Run()} label fitting checks");
 Console.WriteLine($"PASS: {ConfigPathTests.Run()} configuration path checks");
 Console.WriteLine($"PASS: {await FocusTests.Run()} Herdr focus checks");
+Console.WriteLine($"PASS: {await RemoteFocusTests.Run()} remote Herdr focus checks");
 Console.WriteLine($"PASS: {await SocketTests.Run()} Herdr socket checks");
+Console.WriteLine($"PASS: {await SshFocusTests.Run()} Herdr SSH transport checks");
 if (args is ["--probe-herdr", var socket]) await FocusTests.Probe(socket);
 if (args is ["--probe-script", var binary]) await FocusTests.ProbeScript(binary);
 if (args is ["--probe-focus-map", var statePath, var bindingsPath]) await FocusTests.ProbeMap(statePath, bindingsPath);

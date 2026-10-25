@@ -143,7 +143,7 @@ remains the small dependency-free compatibility path here; an iTerm2 Python API
 adapter would be a future alternative. macOS Automation consent, direct local
 pane identity and a currently running iTerm session are prerequisites. No GUI
 keystroke automation, terminal command injection, Codex chat focus API, or
-automatic Herdr-client discovery is assumed. [Local Herdr focus](HERDR-FOCUS.md)
+automatic Herdr-client discovery is assumed. [Herdr focus](HERDR-FOCUS.md)
 uses an explicit outer iTerm2 binding and the public Herdr agent API.
 
 ## Transport and local trust
@@ -189,6 +189,18 @@ These are the only socket methods called; no terminal content is requested.
 Responses are capped at 1 MiB and the entire focus action at eight seconds.
 The Mac binding file is separate from exported state; socket paths are stripped
 from SSH exports and remote rows never become local focus targets.
+
+For remote focus, the tile retains its native session ID and full collector
+source alias. A separate local binding maps that source to an SSH target,
+remote Herdr executable/session and outer Mac iTerm UUID. The plugin invokes
+the remote CLI's `agent list`, `agent get`, and `agent focus` operations over
+OpenSSH; it applies the same native identity checks and terminal preflight as
+local focus. CLI response IDs (`cli:agent:list`, `cli:agent:get`,
+`cli:agent:focus`) and object results are checked. The eight-second action
+deadline includes SSH, which is noninteractive, retains host-key verification,
+disables forwarding, and bounds stdout/stderr. No remote snapshot can provide
+the SSH executable, destination, local socket or Mac terminal mapping.
+This path was verified against a running Herdr 0.9.5/protocol 22 remote server.
 
 The bridge coexists with Herdr rather than reading its internal files. Herdr's
 [integration docs](https://herdr.dev/docs/integrations/) explain the Codex hook

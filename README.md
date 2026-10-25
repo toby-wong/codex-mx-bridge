@@ -29,9 +29,9 @@ animations and status colours at 4 fps.
   configurable chat, location, client and status labels, 1–8 requested fps,
   still poses, and text fallback. Import uses the
   optional Pillow 13 extra; hooks/SSH remain standard-library-only.
-* Direct iTerm2 pane focus on a button press. Local Herdr chats support focus
-  with an explicit [terminal binding](docs/HERDR-FOCUS.md). Remote rows have no
-  focus target.
+* Direct iTerm2 pane focus on a button press. Local and remote Herdr Codex chats
+  support focus with an explicit [terminal binding](docs/HERDR-FOCUS.md),
+  including clients attached through `herdr --remote`.
 * Unit/integration tests, a real-CLI offline hook smoke test, and build/pack tools.
   A three-platform CI template is supplied in `ci/`; enabling it requires GitHub
   workflow permission, which the publishing sign-in did not have.
@@ -177,11 +177,12 @@ The wrapper inherits the terminal. Its ten-second heartbeat proves process
 liveness rather than model progress. Without it, a row becomes `STALE` after
 15 minutes without events; with it, after 45 seconds without a heartbeat.
 
-Pressing a direct local row can focus its original iTerm2 pane. Local Herdr
-rows select their current Codex pane and activate a configured iTerm2 window;
+Pressing a direct local row can focus its original iTerm2 pane. Local and remote
+Herdr rows select their current Codex pane and activate a configured iTerm2 window;
 see [Herdr terminal binding](docs/HERDR-FOCUS.md). macOS Automation consent may
-be required. Remote focus is not implemented; status works without focus
-permission. See `~/.local/state/codex-mx-bridge/focus-status.txt`.
+be required. Remote focus also needs a working noninteractive SSH connection;
+status works without focus permission. See
+`~/.local/state/codex-mx-bridge/focus-status.txt`.
 
 Manual alternative: use `python3.15 bridge.py install-hooks --apply`, review
 `/hooks`, and install `dist/CodexMx_0_3_0.lplug4` from the ZIP by double-clicking.
@@ -382,9 +383,10 @@ the changed config files, or under the install prefix for a previous plugin.
   package validation, and Options+ action picker. Do not install both a `.link`
   and packaged copy of the same plugin simultaneously.
 * Focus missing: check `focus-status.txt` and macOS Automation settings. Local
-  Herdr sessions need a [terminal binding](docs/HERDR-FOCUS.md) and matching
-  native Codex identity. Remote machines, SSH sessions, and terminal sessions
-  without a usable iTerm ID are not eligible for automatic focus.
+  and remote Herdr sessions need a [terminal binding](docs/HERDR-FOCUS.md) and
+  matching native Codex identity. For `herdr --remote`, bind the collector source
+  alias, SSH target, remote Herdr executable/session, and outer Mac iTerm UUID.
+  Plain SSH sessions without Herdr have no automatic focus target.
 * Remote data missing: run the `collect-ssh --once` command first and inspect the
   stored remote error. SSH aliases and host keys must already work noninteractively.
 

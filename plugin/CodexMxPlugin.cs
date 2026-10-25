@@ -130,9 +130,11 @@ internal static class Dashboard
                     if (new FileInfo(path).Length > 65536)
                         throw new InvalidDataException("Herdr focus configuration exceeds 64 KiB");
                     var options = HerdrFocusOptions.Parse(File.ReadAllText(path));
-                    string pane = await HerdrFocus.FocusAsync(tile, options, HerdrSocket.RequestAsync,
+                    await using var transport = new HerdrTransport();
+                    string pane = await HerdrFocus.FocusAsync(tile, options, transport.RequestAsync,
                         (id, tty, check, token) => FocusIterm(script, id, tty, check, token), deadline.Token);
-                    success = $"Focused Herdr {pane} and iTerm";
+                    success = $"Focused Herdr {pane} and iTerm" +
+                        (tile.RemoteHost is null ? "" : $" via SSH ({tile.RemoteHost})");
                 }
                 else
                 {

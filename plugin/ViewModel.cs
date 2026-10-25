@@ -80,7 +80,7 @@ public static class ViewModel
             foreach (var r in remote.Rows.OrderBy(r => r.Order))
                 list.Add((new("remote/" + host + "/" + r.Key, Short(r.Name, 80),
                     offline ? "OFFLINE" : Status(r), Short(host), Kind: r.Kind, Client: r.Client,
-                    RemoteHost: host), r, host));
+                    RemoteHost: host, Herdr: r.Herdr, SessionId: r.Herdr ? r.SessionId : ""), r, host));
         }
         if (state.DroppedRows > 0)
             list.Add((new("overflow", "History cap", "PRUNED " + state.DroppedRows, "bridge"), null, "bridge"));

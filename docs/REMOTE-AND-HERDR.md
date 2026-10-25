@@ -133,6 +133,21 @@ to Herdr itself for this bridge transport.
    internal connection. These execution-location semantics are described in
    [Herdr's remote-work guide](https://herdr.dev/docs/how-to-work/).
 
+5. To make remote Herdr buttons switch chats, register the outer Mac iTerm2
+   pane using the collector alias and SSH target:
+
+   ```sh
+   ~/.local/share/codex-mx-bridge/bin/codex-mx herdr-focus bind \
+     --remote linux-desktop --ssh-target workbox \
+     --herdr-path /home/your-linux-user/.local/bin/herdr \
+     --iterm-id 'OUTER_ITERM_SESSION_UUID'
+   ```
+
+   The remote Herdr server must already be running and reporting native Codex
+   session IDs. Add `--remote-session NAME` if the client attached with
+   `--session NAME`. Bindings reload on each press; see
+   [Herdr focus setup and checks](HERDR-FOCUS.md).
+
 ## Connection and status semantics
 
 * Pull-only: the Mac initiates ordinary SSH commands. No reverse tunnel,
@@ -161,11 +176,11 @@ to Herdr itself for this bridge transport.
 
 ## What remains unsupported
 
-This version displays remote Codex status but does not focus remote Herdr
-panes. [Local Herdr focus](HERDR-FOCUS.md) requires an explicit Mac terminal
-binding. The bridge does not start Herdr, attach clients, send prompts,
-approve requests, or type into an agent terminal. Remote focus needs additional
-machine/client mapping; see the [extension assessment](HERDR-EXTENSION-ASSESSMENT.md).
+Local and remote Herdr Codex focus require an explicit
+[Mac terminal binding](HERDR-FOCUS.md). Plain SSH sessions without Herdr do
+not have a button focus target. The bridge does not start Herdr, attach clients,
+switch a client between saved machines, send prompts, approve requests, or type
+into an agent terminal. Herdr focus for Claude/Kiro is not enabled.
 
 Linux-side iTerm metadata is never used to control a Mac terminal. Remote
 snapshots do not include prompts, tool inputs/results, full working paths, or

@@ -54,9 +54,10 @@ internal static class FocusTests
         var current = Agent();
         var focused = Agent();
         bool missingTerminal = false, focusError = false;
-        Task<JsonElement> Api(string socket, string method, object parameters, CancellationToken cancellation)
+        Task<JsonElement> Api(HerdrEndpoint endpoint, string method, object parameters, CancellationToken cancellation)
         {
-            Check(socket == Path.GetFullPath(SocketPath), "focus uses only the row's local socket");
+            Check(endpoint.Remote is null && endpoint.Socket == Path.GetFullPath(SocketPath),
+                  "focus uses only the row's local socket");
             calls.Add(method);
             if (method == "agent.list")
                 return Task.FromResult(JsonSerializer.SerializeToElement(new { type = "agent_list", agents = listed }));
@@ -128,7 +129,7 @@ internal static class FocusTests
                                         tile with { HerdrSocket = "relative" }, tile with { SessionId = "" } })
         {
             calls.Clear();
-            await Reject(() => Focus(invalid), "No local Herdr identity");
+            await Reject(() => Focus(invalid), "Herdr identity");
             Check(calls.Count == 0, "invalid or remote target does not access a socket");
         }
         calls.Clear();
@@ -145,9 +146,10 @@ internal static class FocusTests
         }};
         var inspected = new List<string>();
         bool secondMatches = false, secondOffline = false;
-        Task<JsonElement> AcrossServers(string socket, string method, object parameters, CancellationToken cancellation)
+        Task<JsonElement> AcrossServers(HerdrEndpoint endpoint, string method, object parameters, CancellationToken cancellation)
         {
             Check(method == "agent.list", "resolution alone never changes focus");
+            string socket = endpoint.Socket;
             inspected.Add(socket);
             if (socket == secondSocket && secondOffline) throw new IOException("server offline");
             var agents = socket == SocketPath || secondMatches ? new[] { Agent() } : Array.Empty<JsonElement>();
@@ -155,7 +157,7 @@ internal static class FocusTests
         }
         var legacy = tile with { HerdrSocket = "" };
         var resolved = await HerdrFocus.ResolveAsync(legacy, twoBindings, AcrossServers, CancellationToken.None);
-        Check(resolved.Socket == SocketPath && inspected.Count == 2,
+        Check(resolved.Endpoint.Socket == SocketPath && inspected.Count == 2,
               "legacy resolution checks every configured server before choosing a unique match");
         secondMatches = true;
         await Reject(() => HerdrFocus.ResolveAsync(legacy, twoBindings, AcrossServers, CancellationToken.None),
@@ -165,7 +167,7 @@ internal static class FocusTests
                      "server offline");
         inspected.Clear();
         resolved = await HerdrFocus.ResolveAsync(tile, twoBindings, AcrossServers, CancellationToken.None);
-        Check(resolved.Socket == SocketPath && inspected.SequenceEqual(new[] { SocketPath }),
+        Check(resolved.Endpoint.Socket == SocketPath && inspected.SequenceEqual(new[] { SocketPath }),
               "an explicit socket never falls back to a different server");
 
         foreach (string invalid in new[]
@@ -199,15 +201,24 @@ internal static class FocusTests
         var state = ViewModel.Parse(File.ReadAllText(statePath));
         var options = HerdrFocusOptions.Parse(File.ReadAllText(bindingsPath));
         var tiles = ViewModel.Tiles(state, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        await using var transport = new HerdrTransport();
         for (int index = 0; index < tiles.Count; index++)
         {
             var tile = tiles[index];
-            if (!tile.Herdr || tile.Host != "local") continue;
+            if (!tile.Herdr) continue;
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(8));
             try
             {
-                var target = await HerdrFocus.ResolveAsync(tile, options, HerdrSocket.RequestAsync, deadline.Token);
-                Console.WriteLine($"MATCH slot={index + 1}; session={tile.SessionId}; pane={target.Pane}; socket={target.Socket}");
+                var target = await HerdrFocus.ResolveAsync(tile, options, transport.RequestAsync, deadline.Token);
+                var current = HerdrFocus.Agent(await transport.RequestAsync(target.Endpoint, "agent.get",
+                    new { target = target.Pane }, deadline.Token));
+                if (!HerdrFocus.Matches(current, tile.SessionId) ||
+                    HerdrFocus.Text(current, "terminal_id") != target.Terminal ||
+                    HerdrFocus.Text(current, "pane_id") != target.Pane)
+                    throw new InvalidOperationException("Herdr pane changed occupants during the probe.");
+                string server = target.Endpoint.Remote is { } remote
+                    ? $"ssh={remote.SshTarget}; remote_session={remote.RemoteSession}" : $"socket={target.Endpoint.Socket}";
+                Console.WriteLine($"MATCH slot={index + 1}; source={tile.RemoteHost ?? "local"}; session={tile.SessionId}; pane={target.Pane}; {server}");
             }
             catch (Exception ex)
             {

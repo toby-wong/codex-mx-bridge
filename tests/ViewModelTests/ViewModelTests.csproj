@@ -7,6 +7,7 @@
     <Compile Include="../../plugin/PetSelection.cs" Link="PetSelection.cs" />
     <Compile Include="../../plugin/ChatNameIndex.cs" Link="ChatNameIndex.cs" />
     <Compile Include="../../plugin/HerdrFocus.cs" Link="HerdrFocus.cs" />
+    <Compile Include="../../plugin/HerdrSsh.cs" Link="HerdrSsh.cs" />
     <Compile Include="../../plugin/FocusScript.cs" Link="FocusScript.cs" />
     <EmbeddedResource Include="../../plugin/package/focus.applescript" LogicalName="CodexMxPlugin.focus.applescript" />
   </ItemGroup>

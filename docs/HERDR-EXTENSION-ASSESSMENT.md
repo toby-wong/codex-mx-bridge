@@ -2,10 +2,11 @@
 
 Assessment date: 24 October 2026 (Australia/Sydney). This is a separate research workstream; no Herdr adapter or extension is implemented by this document.
 
-Update, 25 October 2026: [local Herdr button focus](HERDR-FOCUS.md) is now
-implemented with explicit terminal bindings. The status adapter and remote
-focus proposals below remain unimplemented; this assessment records the
-earlier source audit.
+Update, 25 October 2026: [local and remote Herdr button focus](HERDR-FOCUS.md)
+are now implemented with explicit terminal bindings. Remote focus uses ordinary
+SSH and a source/session-to-iTerm mapping, including for `herdr --remote`
+clients. The status adapter remains unimplemented; this assessment records the
+earlier source audit and proposals.
 
 ## Recommendation
 

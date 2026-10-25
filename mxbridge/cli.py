@@ -150,14 +150,22 @@ def main(argv=None):
     p.add_argument("--once", action="store_true")
     p = sub.add_parser("clear", help="Remove historical local rows, or one remote source")
     p.add_argument("--remote")
-    p = sub.add_parser("herdr-focus", help="Bind local Herdr sessions to their outer iTerm2 panes")
+    p = sub.add_parser("herdr-focus", help="Bind local or remote Herdr sessions to outer iTerm2 panes")
     focus = p.add_subparsers(dest="focus_action", required=True)
     focus.add_parser("list", help="Show configured terminal bindings")
-    p = focus.add_parser("bind", help="Register the outer iTerm2 pane for a local Herdr socket")
-    p.add_argument("--socket", type=Path, required=True)
+    p = focus.add_parser("bind", help="Register the outer iTerm2 pane for a Herdr session")
+    location = p.add_mutually_exclusive_group(required=True)
+    location.add_argument("--socket", type=Path, help="Absolute local Herdr socket path")
+    location.add_argument("--remote", help="Remote collector source alias (collect-ssh --alias)")
     p.add_argument("--iterm-id", help="Explicit outer iTerm2 ID; otherwise use this shell's ID")
-    p = focus.add_parser("remove", help="Disable focus for one Herdr socket")
-    p.add_argument("--socket", type=Path, required=True)
+    p.add_argument("--ssh-target", help="SSH target; defaults to the remote source alias")
+    p.add_argument("--herdr-path", help="Remote executable, e.g. /home/user/.local/bin/herdr; defaults to herdr")
+    p.add_argument("--remote-session", help="Named remote Herdr session; omit for its default session")
+    p = focus.add_parser("remove", help="Disable focus for one local or remote Herdr session")
+    location = p.add_mutually_exclusive_group(required=True)
+    location.add_argument("--socket", type=Path)
+    location.add_argument("--remote", help="Remote collector source alias")
+    p.add_argument("--remote-session", help="Named remote Herdr session; omit for its default session")
     p = sub.add_parser("demo", help="Write an isolated synthetic snapshot")
     p = sub.add_parser("display", help="Inspect/change local button theme; no restart needed")
     p.add_argument("--mode", choices=("text", "pet"))
@@ -217,9 +225,21 @@ def main(argv=None):
         from . import focus
         try:
             if args.focus_action == "bind":
-                result = focus.bind(store.directory, args.socket.expanduser(), args.iterm_id)
+                if args.remote is not None:
+                    result = focus.bind_remote(store.directory, args.remote, args.iterm_id,
+                                               ssh_target=args.ssh_target, herdr_path=args.herdr_path or "herdr",
+                                               remote_session=args.remote_session or "")
+                else:
+                    if any(v is not None for v in (args.ssh_target, args.herdr_path, args.remote_session)):
+                        raise ValueError("SSH options require --remote")
+                    result = focus.bind(store.directory, args.socket.expanduser(), args.iterm_id)
             elif args.focus_action == "remove":
-                result = focus.remove(store.directory, args.socket.expanduser())
+                if args.remote is not None:
+                    result = focus.remove_remote(store.directory, args.remote, args.remote_session or "")
+                else:
+                    if args.remote_session is not None:
+                        raise ValueError("--remote-session requires --remote")
+                    result = focus.remove(store.directory, args.socket.expanduser())
             else:
                 result = focus.read_bindings(store.directory)
             print(json.dumps(result, indent=2))
