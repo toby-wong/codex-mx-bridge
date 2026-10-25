@@ -24,7 +24,7 @@ restored. The old active config file was removed after backing it up.
 The CLI and preview reader both found the new file and the existing cat pack.
 Receipt: `~/.local/share/codex-mx-bridge/backups/config-directory-verification-2026-10-25.json`.
 
-## Recent chat views — 25 October 2026
+## Recent chat views and Marketplace investigation — 25 October 2026
 
 * 118 Python tests passed, including creation-time persistence across resume
   and heartbeat, relative creation ages over SSH, old exporter compatibility,
@@ -48,6 +48,12 @@ motion and caption settings were preserved, and a new 116 × 116 pet draw was
 recorded after the restart. The local receipt is
 `~/.local/share/codex-mx-bridge/backups/chat-view-reload-verification-2026-10-25.json`.
 Physical ordering, paging and focus acceptance still need device observation.
+
+The Marketplace investigation used current public Logitech documentation and
+inspected the generated archive. The package verification passed despite
+missing mandatory submission metadata described in the newer public guide;
+it is not a Marketplace approval or complete submission-readiness result.
+See [the publishing assessment](MARKETPLACE-PUBLISHING.md).
 
 ## Legacy Herdr rows and configurable labels — 25 October 2026
 

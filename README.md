@@ -6,7 +6,7 @@ implementation with portable tests and an SDK-validated plugin package; physical
 hardware and macOS integration still need the acceptance checks below.
 
 Repository: [toby-wong/codex-mx-bridge](https://github.com/toby-wong/codex-mx-bridge)
-(private). Version 0.3.0. Documentation verified 24 October 2026.
+(public). Version 0.3.0. Documentation verified 25 October 2026.
 
 ![Animated Logitech MX Creative Console with monthly-salary-cat showing ready, working, approval, turn stop, and exit error states](docs/assets/console-preview.gif)
 
@@ -41,6 +41,8 @@ animations and status colours at 4 fps.
   [SSH and Herdr setup](docs/REMOTE-AND-HERDR.md),
   [test evidence](docs/VALIDATION.md), and a separate
   [Herdr extension assessment](docs/HERDR-EXTENSION-ASSESSMENT.md).
+* [Marketplace publishing assessment](docs/MARKETPLACE-PUBLISHING.md), including
+  the official submission route and remaining distribution work.
 
 No OpenAI API key is needed by the bridge. Codex retains its own normal login.
 No Codex internal database, transcript parser, terminal screen scraper, or
