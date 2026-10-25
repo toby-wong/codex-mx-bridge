@@ -2,6 +2,35 @@
 
 Latest validation: 25 October 2026, Australia/Sydney.
 
+## Button focus binding and fitted labels — 25 October 2026
+
+* The saved Herdr binding pointed at a shell tab after the Herdr client had
+  moved to another iTerm tab. Updated only that mapping, retaining a private
+  backup. The user confirmed button 3 opens the intended Herdr chat.
+* The combined source passed 125 Python tests and 300 C# checks, including
+  33 portable label checks covering width and height bounds, wrapped
+  names, overlong names with ellipses, wide glyphs, Unicode graphemes, hidden
+  captions, and preservation of project names beyond 18 characters. The
+  upstream 80-character cap now preserves whole graphemes in both project
+  labels and saved chat names.
+* Rendered eight examples at 116 × 116, 96 × 96 and 32 × 32 using the real
+  6.1.4.22672 SDK and its native Skia renderer. Inspected the images and checked
+  that caption pixels stayed outside the pet area. Explicit line spacing
+  avoids the SDK's canvas-size-dependent default.
+* Twenty cached caption draws took 0.22–1.02 ms per case. Repeated draws kept
+  identical image bytes and did not grow the cache. This is a software check,
+  not a hardware frame-rate claim.
+* The plugin Release build passed with zero warnings/errors, and LogiPluginTool
+  packed and verified it. The pet-selection and Herdr focus checks also pass
+  with the fitted labels enabled.
+
+The device is disconnected, so physical label legibility remains unverified.
+Installed the combined plugin release `0.3.0-ef5693f9e85f` and restarted Logi
+Plugin Service. The Python release, client hook files, launcher, working Herdr
+binding and display preferences were verified unchanged.
+Local receipt:
+`~/.local/share/codex-mx-bridge/backups/label-rendering-verification-2026-10-25.json`.
+
 ## Per-chat pet selection — 25 October 2026
 
 * 125 Python tests and 267 C# checks passed against the isolated feature source.

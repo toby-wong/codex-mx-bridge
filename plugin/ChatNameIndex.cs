@@ -29,7 +29,7 @@ public sealed class ChatNameIndex
                     continue;
                 string key = id.GetString()!, name = title.GetString()!;
                 if (string.IsNullOrWhiteSpace(key) || key.Length > 512 || key.Any(char.IsControl)) continue;
-                name = new string(name.Where(c => !char.IsControl(c)).Take(80).ToArray()).Trim();
+                name = ViewModel.Short(name, 80).Trim();
                 if (name.Length > 0) names[key] = name; // A later rename supersedes an earlier entry.
                 else names.Remove(key);
             }

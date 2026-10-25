@@ -228,7 +228,7 @@ public sealed class AgentSlotCommand : PluginDynamicCommand
         var status = tile?.Status ?? "";
         b.Clear(PetDisplay.Background(status));
         string text = tile is null ? $"Page {Dashboard.PageText}\nEmpty" : PetDisplay.Labels(tile).Text;
-        if (text.Length > 0) b.DrawText(text);
+        if (text.Length > 0) LabelRenderer.Draw(b, text, 0, b.Height, status);
         return Remember(b.ToImage());
     }
 }

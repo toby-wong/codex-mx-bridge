@@ -126,6 +126,7 @@ internal static class PetDisplay
             _pets.Clear(); RenderedPets.Clear(); _assetRoot = ""; _fingerprint = ""; _loadErrors = "";
             _renderStatus = ""; _retry = false; _options = new();
         }
+        LabelRenderer.Clear();
     }
 
     public static void ReportRenderError(Exception error)
@@ -149,16 +150,6 @@ internal static class PetDisplay
                 File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Trace.WriteLine(ex.Message); }
-    }
-
-    private static void DrawLabel(BitmapBuilder target, string text, int top, int height, BitmapColor background)
-    {
-        // Newer hosts add a parameter to the positioned DrawText overload.
-        // A separate canvas lets us use the binary-compatible simple overload.
-        using var label = new BitmapBuilder(target.Width, height);
-        label.Clear(background);
-        label.DrawText(text);
-        target.DrawImage(label.ToImage(), 0, top);
     }
 
     private static (LoadedPet Pet, string File)? FrameFor(Tile tile)
@@ -207,9 +198,9 @@ internal static class PetDisplay
             int w = Math.Max(1, (int)(manifest.FrameWidth*scale)), h = Math.Max(1, (int)(manifest.FrameHeight*scale));
             var background = Background(tile.Status);
             b.Clear(background);
-            if (header > 0) DrawLabel(b, labels.Header, 0, header, background);
+            if (header > 0) LabelRenderer.Draw(b, labels.Header, 0, header, tile.Status);
             b.DrawImage(frame, (b.Width-w)/2, header+(b.Height-header-footer-h)/2, w, h);
-            if (footer > 0) DrawLabel(b, labels.Footer, b.Height-footer, footer, background);
+            if (footer > 0) LabelRenderer.Draw(b, labels.Footer, b.Height-footer, footer, tile.Status);
             var image = b.ToImage();
             RenderedPets.Add(pet.Id);
             string rendered = string.Join(",", RenderedPets.Order(StringComparer.Ordinal));

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace Loupedeck.CodexMxPlugin;
@@ -68,7 +69,7 @@ public static class ViewModel
         var list = new List<(Tile Tile, Row? Row, string Source)>();
         string Status(Row r) => !Final.Contains(r.Status) && now > r.ValidUntil ? "STALE" : r.Status;
         foreach (var r in state.Rows.OrderBy(r => r.Order))
-            list.Add((new(r.Key, Short(r.Name), Status(r), "local", r.Herdr ? "" : r.ItermId,
+            list.Add((new(r.Key, Short(r.Name, 80), Status(r), "local", r.Herdr ? "" : r.ItermId,
                          r.Herdr ? "" : r.Tty, r.Kind, r.Herdr, r.SessionId,
                          r.Herdr ? r.HerdrSocket : "", r.Client), r, "local"));
         foreach (var (host, remote) in state.Remotes.OrderBy(p => p.Key, StringComparer.Ordinal))
@@ -77,7 +78,7 @@ public static class ViewModel
             if (remote.Rows.Count == 0 && offline)
                 list.Add((new("remote/" + host, "SSH", "OFFLINE", Short(host), RemoteHost: host), null, host));
             foreach (var r in remote.Rows.OrderBy(r => r.Order))
-                list.Add((new("remote/" + host + "/" + r.Key, Short(r.Name),
+                list.Add((new("remote/" + host + "/" + r.Key, Short(r.Name, 80),
                     offline ? "OFFLINE" : Status(r), Short(host), Kind: r.Kind, Client: r.Client,
                     RemoteHost: host), r, host));
         }
@@ -104,7 +105,21 @@ public static class ViewModel
                       .Take(9).ToList();
     }
 
-    public static string Short(string text) => new(text.Where(c => !char.IsControl(c)).Take(18).ToArray());
+    public static string Short(string text, int limit = 18)
+    {
+        if (limit <= 0) return "";
+        string clean = new(text.Where(c => !char.IsControl(c)).ToArray());
+        if (clean.Length <= limit) return clean;
+        // A name can reach this cap before label fitting; retain complete
+        // graphemes so the renderer never receives half an emoji or accent.
+        int end = 0;
+        foreach (int boundary in StringInfo.ParseCombiningCharacters(clean))
+        {
+            if (boundary > limit) break;
+            end = boundary;
+        }
+        return clean[..end];
+    }
     public static int PageCount(int count) => Math.Max(1, (count + 8) / 9);
     public static int WrapPage(int page, int count) => ((page % PageCount(count)) + PageCount(count)) % PageCount(count);
 }

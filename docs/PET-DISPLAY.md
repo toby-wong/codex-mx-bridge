@@ -158,6 +158,14 @@ the same status animation and background colour. Set all four `show_…` switche
 to `false` for just the pet; unused caption space becomes available to the
 sprite. Bridge errors and empty slots still show diagnostic text.
 
+Labels fit the available button area using the SDK's font measurements. Long
+names wrap at words or project-name separators, with smaller text when needed
+and an ellipsis if the remaining lines cannot hold the full name. Project names
+are retained up to 80 characters before layout instead of being cut to 18.
+The name limit preserves whole Unicode graphemes, including emoji and accents,
+for both project labels and saved chat names.
+The fitted captions are cached independently of the pet's animation frames.
+
 The CLI preserves other settings when changing individual switches:
 
 ```sh
