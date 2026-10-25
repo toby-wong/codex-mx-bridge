@@ -2,6 +2,30 @@
 
 Date: 24 October 2026, Australia/Sydney.
 
+## Local Herdr focus update — 25 October 2026
+
+Validated on macOS using the installed Python 3.15 environment, .NET 8, and
+the real `LogiPluginTool` 6.1.4.22672 SDK:
+
+| Check | Observed result |
+| --- | --- |
+| `python3.15 scripts/test_all.py` | 62 Python tests; 20 C# view-model/contract, 18 sprite, 82 Herdr focus, and 6 Unix socket checks passed |
+| Release plugin build against the SDK | Passed, 0 warnings, 0 errors |
+| `osacompile` on `plugin/package/focus.applescript` | Passed |
+| C# `--probe-herdr` against the running local server | Read-only `agent.list` succeeded with 9 agents |
+| Live Herdr contract inspection | CLI 0.9.5 schema; server snapshot reported 0.9.3/protocol 22; `agent.list` and `agent.get` response shapes verified |
+
+New checks cover explicit terminal bindings, replacement/removal, old-row
+metadata refresh, remote socket stripping, duplicate/missing native identities,
+reused panes, missing Mac terminals, rejected/unconfirmed focus, fragmented
+responses, response-ID mismatch, disconnects, size limits, and cancellation.
+
+No live `agent.focus` or iTerm selection was performed. Activating the feature
+requires updating the installed hooks/plugin and binding the intended outer
+terminal. An on-device press with that Herdr client attached, including the
+session-wide effects on other clients, remains unverified. See
+[Herdr focus setup](HERDR-FOCUS.md).
+
 ## Observed locally
 
 Environment: Windows build machine; stable CPython 3.15.1, .NET SDK 8.0.202,

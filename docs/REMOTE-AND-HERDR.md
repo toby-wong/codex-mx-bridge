@@ -30,8 +30,10 @@ your installed version if using a wrapper command. No change to Herdr's own
 restore command is made by this project.
 
 An inherited iTerm ID identifies an outer terminal, not a stable Herdr pane.
-When `HERDR_ENV=1`, focus metadata is suppressed. If your version does not set
-that marker, explicitly start the agent with `HERDR_ENV=1 codex` (or the wrapper)
+When `HERDR_ENV=1`, inherited iTerm metadata is suppressed. Local hooks record
+the Herdr socket instead; an explicit [terminal binding](HERDR-FOCUS.md) enables
+selection through Herdr's API followed by iTerm2 activation. If your version
+does not set that marker, explicitly start the agent with `HERDR_ENV=1 codex` (or the wrapper)
 so this bridge does not mistake the virtual pane for a direct iTerm session.
 Detaching Herdr must not mark its agents closed: they still run in the server.
 
@@ -159,11 +161,11 @@ to Herdr itself for this bridge transport.
 
 ## What remains unsupported
 
-This version displays remote Codex status but does not select a particular
-Herdr pane, start Herdr, attach clients, send prompts, approve requests, or type
-into an agent terminal. Those actions require a separate Herdr-aware adapter
-with verified identity mapping and explicit connection behavior. See the
-[extension assessment](HERDR-EXTENSION-ASSESSMENT.md).
+This version displays remote Codex status but does not focus remote Herdr
+panes. [Local Herdr focus](HERDR-FOCUS.md) requires an explicit Mac terminal
+binding. The bridge does not start Herdr, attach clients, send prompts,
+approve requests, or type into an agent terminal. Remote focus needs additional
+machine/client mapping; see the [extension assessment](HERDR-EXTENSION-ASSESSMENT.md).
 
 Linux-side iTerm metadata is never used to control a Mac terminal. Remote
 snapshots do not include prompts, tool inputs/results, full working paths, or

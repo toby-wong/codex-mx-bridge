@@ -7,7 +7,15 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from mxbridge.focus import bind
+from mxbridge.state import Store, apply_event
+
 subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], cwd=ROOT, check=True)
 with tempfile.TemporaryDirectory(prefix="mx-contract-") as state:
     subprocess.run([sys.executable, "bridge.py", "--state-dir", state, "demo"], cwd=ROOT, check=True)
+    with Store(state).transaction() as wire:
+        apply_event(wire, dict(session_id="herdr-contract", hook_event_name="SessionStart"),
+                    env=dict(HERDR_ENV="1", HERDR_SOCKET_PATH="/tmp/mx-herdr.sock"))
+    bind(state, "/tmp/mx-herdr.sock", "12345678-1234-1234-1234-123456789abc")
     subprocess.run(["dotnet", "run", "--project", "tests/ViewModelTests", "--", str(Path(state)/"state.json")], cwd=ROOT, check=True)

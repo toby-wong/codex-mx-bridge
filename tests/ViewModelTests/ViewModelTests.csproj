@@ -3,5 +3,6 @@
   <ItemGroup>
     <Compile Include="../../plugin/ViewModel.cs" Link="ViewModel.cs" />
     <Compile Include="../../plugin/DisplayModel.cs" Link="DisplayModel.cs" />
+    <Compile Include="../../plugin/HerdrFocus.cs" Link="HerdrFocus.cs" />
   </ItemGroup>
 </Project>

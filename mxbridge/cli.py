@@ -111,6 +111,14 @@ def main(argv=None):
     p.add_argument("--once", action="store_true")
     p = sub.add_parser("clear", help="Remove historical local rows, or one remote source")
     p.add_argument("--remote")
+    p = sub.add_parser("herdr-focus", help="Bind local Herdr sessions to their outer iTerm2 panes")
+    focus = p.add_subparsers(dest="focus_action", required=True)
+    focus.add_parser("list", help="Show configured terminal bindings")
+    p = focus.add_parser("bind", help="Register the outer iTerm2 pane for a local Herdr socket")
+    p.add_argument("--socket", type=Path, required=True)
+    p.add_argument("--iterm-id", help="Explicit outer iTerm2 ID; otherwise use this shell's ID")
+    p = focus.add_parser("remove", help="Disable focus for one Herdr socket")
+    p.add_argument("--socket", type=Path, required=True)
     p = sub.add_parser("demo", help="Write an isolated synthetic snapshot")
     p = sub.add_parser("display", help="Inspect/change local button theme; no restart needed")
     p.add_argument("--mode", choices=("text", "pet"))
@@ -139,6 +147,19 @@ def main(argv=None):
             print("{}")
             return 0
     store = Store(args.state_dir)
+    if args.action == "herdr-focus":
+        from . import focus
+        try:
+            if args.focus_action == "bind":
+                result = focus.bind(store.directory, args.socket.expanduser(), args.iterm_id)
+            elif args.focus_action == "remove":
+                result = focus.remove(store.directory, args.socket.expanduser())
+            else:
+                result = focus.read_bindings(store.directory)
+            print(json.dumps(result, indent=2))
+            return 0
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
     if args.action in {"display", "pet"}:
         from . import pets
         try:

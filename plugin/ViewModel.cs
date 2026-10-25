@@ -12,6 +12,7 @@ public sealed class Row
     public string LastEvent { get; set; } = "";
     public string ItermId { get; set; } = "";
     public string Tty { get; set; } = "";
+    public string HerdrSocket { get; set; } = "";
     public long Order { get; set; }
     public double UpdatedAt { get; set; }
     public double ValidUntil { get; set; }
@@ -34,7 +35,8 @@ public sealed class State
 }
 
 public sealed record Tile(string Key, string Name, string Status, string Host,
-                          string ItermId = "", string Tty = "", string Kind = "session")
+                          string ItermId = "", string Tty = "", string Kind = "session",
+                          bool Herdr = false, string SessionId = "", string HerdrSocket = "")
 {
     public string Text => $"{Host}\n{(Kind == "subagent" ? "> " : "")}{Name}\n{Status}";
 }
@@ -58,7 +60,8 @@ public static class ViewModel
         string Status(Row r) => !Final.Contains(r.Status) && now > r.ValidUntil ? "STALE" : r.Status;
         foreach (var r in state.Rows.OrderBy(r => r.Order))
             list.Add(new(r.Key, Short(r.Name), Status(r), "local", r.Herdr ? "" : r.ItermId,
-                         r.Herdr ? "" : r.Tty, r.Kind));
+                         r.Herdr ? "" : r.Tty, r.Kind, r.Herdr, r.SessionId,
+                         r.Herdr ? r.HerdrSocket : ""));
         foreach (var (host, remote) in state.Remotes.OrderBy(p => p.Key, StringComparer.Ordinal))
         {
             bool offline = remote.Error.Length > 0 || now > remote.ReceivedAt + 15;

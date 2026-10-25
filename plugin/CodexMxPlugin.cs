@@ -49,6 +49,7 @@ internal static class Dashboard
     private static int _page;
     private static readonly string?[] FrameKeys = new string?[9];
     private static string _focusError = "";
+    private static int _focusing;
     private static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     public static event Action? Changed;
     public static event Action<int>? SlotFrameChanged;
@@ -112,35 +113,72 @@ internal static class Dashboard
     }
     public static void Focus(Tile? tile)
     {
-        if (tile is null) return;
-        _ = Task.Run(() =>
+        if (tile is null || Interlocked.CompareExchange(ref _focusing, 1, 0) != 0) return;
+        _ = Task.Run(async () =>
         {
-            string error = "";
+            string error = "", success = "Focused iTerm";
             try
             {
-                if (tile.ItermId.Length == 0 && tile.Tty.Length == 0)
-                    throw new InvalidOperationException("No direct iTerm target; Herdr/remote pane focus is not implemented.");
                 var script = Path.Combine(Path.GetDirectoryName(typeof(CodexMxPlugin).Assembly.Location)!, "..", "focus.applescript");
-                var start = new ProcessStartInfo("/usr/bin/osascript") { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
-                start.ArgumentList.Add(Path.GetFullPath(script));
-                // Pass data through argv, never interpolate AppleScript or shell code.
-                start.ArgumentList.Add(tile.ItermId.Split(':').Last());
-                start.ArgumentList.Add(tile.Tty);
-                using var process = Process.Start(start) ?? throw new IOException("Cannot start osascript");
-                if (!process.WaitForExit(5000)) { process.Kill(); throw new IOException("iTerm focus timed out"); }
-                if (process.ExitCode != 0) throw new IOException("iTerm target missing or macOS Automation permission denied.");
+                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                if (tile.Herdr)
+                {
+                    var path = Path.Combine(Path.GetDirectoryName(StatePath)!, "herdr-focus.json");
+                    if (!File.Exists(path))
+                        throw new InvalidOperationException("Bind this Herdr session with codex-mx herdr-focus bind.");
+                    if (new FileInfo(path).Length > 65536)
+                        throw new InvalidDataException("Herdr focus configuration exceeds 64 KiB");
+                    var options = HerdrFocusOptions.Parse(File.ReadAllText(path));
+                    string pane = await HerdrFocus.FocusAsync(tile, options, HerdrSocket.RequestAsync,
+                        (id, tty, check, token) => FocusIterm(script, id, tty, check, token), deadline.Token);
+                    success = $"Focused Herdr {pane} and iTerm";
+                }
+                else
+                {
+                    if (tile.ItermId.Length == 0 && tile.Tty.Length == 0)
+                        throw new InvalidOperationException("No direct iTerm target; remote focus is not configured.");
+                    await FocusIterm(script, tile.ItermId.Split(':').Last(), tile.Tty, false, deadline.Token);
+                }
             }
+            catch (OperationCanceledException) { error = "Terminal focus timed out"; }
             catch (Exception ex) { error = ex.Message; }
             _focusError = error;
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);
                 File.WriteAllText(Path.Combine(Path.GetDirectoryName(StatePath)!, "focus-status.txt"),
-                    DateTimeOffset.UtcNow.ToString("O") + " " + (error.Length == 0 ? "Focused iTerm" : error));
+                    DateTimeOffset.UtcNow.ToString("O") + " " + (error.Length == 0 ? success : error));
             }
-            catch (IOException) { }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            finally { Interlocked.Exchange(ref _focusing, 0); }
             Notify();
         });
+    }
+    private static async Task FocusIterm(string script, string id, string tty, bool checkOnly,
+                                          CancellationToken cancellation)
+    {
+        var start = new ProcessStartInfo("/usr/bin/osascript")
+        { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
+        start.ArgumentList.Add(Path.GetFullPath(script));
+        // Pass data through argv, never interpolate AppleScript or shell code.
+        start.ArgumentList.Add(id);
+        start.ArgumentList.Add(tty);
+        start.ArgumentList.Add(checkOnly ? "check" : "focus");
+        using var process = Process.Start(start) ?? throw new IOException("Cannot start osascript");
+        var stdout = process.StandardOutput.ReadToEndAsync(cancellation);
+        var stderr = process.StandardError.ReadToEndAsync(cancellation);
+        try
+        {
+            await process.WaitForExitAsync(cancellation);
+            await Task.WhenAll(stdout, stderr);
+        }
+        catch
+        {
+            if (!process.HasExited) process.Kill();
+            throw;
+        }
+        if (process.ExitCode != 0)
+            throw new IOException("iTerm target missing or macOS Automation permission denied.");
     }
     public static string FocusStatus => _focusError.Length > 0 ? "NO FOCUS" : "";
 }

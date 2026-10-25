@@ -2,6 +2,11 @@
 
 Assessment date: 24 October 2026 (Australia/Sydney). This is a separate research workstream; no Herdr adapter or extension is implemented by this document.
 
+Update, 25 October 2026: [local Herdr button focus](HERDR-FOCUS.md) is now
+implemented with explicit terminal bindings. The status adapter and remote
+focus proposals below remain unimplemented; this assessment records the
+earlier source audit.
+
 ## Recommendation
 
 Keep the bridge's independent Codex lifecycle hooks as its primary event source. Herdr use does not inherently prevent those hooks from running, locally or on Linux over SSH. Add an **optional external Herdr status adapter** if the bridge needs Herdr's detected agents, pane identity, workspace labels, or status when hook events are unavailable. A Herdr plugin is useful later as a small installation and event-export package; it is not required to obtain status and should not become the bridge's daemon supervisor.

@@ -112,7 +112,8 @@ remains the small dependency-free compatibility path here; an iTerm2 Python API
 adapter would be a future alternative. macOS Automation consent, direct local
 pane identity and a currently running iTerm session are prerequisites. No GUI
 keystroke automation, terminal command injection, Codex chat focus API, or
-specific Herdr-pane focus is assumed.
+automatic Herdr-client discovery is assumed. [Local Herdr focus](HERDR-FOCUS.md)
+uses an explicit outer iTerm2 binding and the public Herdr agent API.
 
 ## Transport and local trust
 
@@ -146,6 +147,16 @@ authentication. Polling is eventually consistent; there is no event replay,
 inbound service, remote control, or promise of exact status during disconnection.
 
 ## Herdr
+
+For local button focus, hooks record `HERDR_SOCKET_PATH` only when
+`HERDR_ENV=1` and no `SSH_CONNECTION` is present. The plugin uses the configured
+socket's `agent.list`, `agent.get`, and `agent.focus` methods with
+newline-delimited JSON request/response IDs. It matches the native Codex
+session identity and rechecks the stable terminal ID immediately before focus.
+These are the only socket methods called; no terminal content is requested.
+Responses are capped at 1 MiB and the entire focus action at eight seconds.
+The Mac binding file is separate from exported state; socket paths are stripped
+from SSH exports and remote rows never become local focus targets.
 
 The bridge coexists with Herdr rather than reading its internal files. Herdr's
 [integration docs](https://herdr.dev/docs/integrations/) explain the Codex hook

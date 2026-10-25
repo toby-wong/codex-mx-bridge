@@ -104,17 +104,27 @@ class Store:
                     msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
 
 
+def focus_target(env):
+    # Herdr owns a virtual terminal. Its server may inherit an obsolete iTerm ID.
+    herdr = env.get("HERDR_ENV") == "1"
+    local = not env.get("SSH_CONNECTION")
+    socket = env.get("HERDR_SOCKET_PATH", "")
+    if (not isinstance(socket, str) or not socket.startswith("/") or
+            len(socket) > 512 or not socket.isprintable()):
+        socket = ""
+    return dict(herdr=herdr,
+                herdr_socket=os.path.normpath(socket) if herdr and local and socket else "",
+                iterm_id=clean(env.get("ITERM_SESSION_ID"), 256) if local and not herdr else "",
+                tty=clean(env.get("MX_CODEX_TTY"), 128) if local and not herdr else "")
+
+
 def new_row(state, key, session, name, now, env, kind="session"):
     state["next_order"] += 1
-    # Herdr owns a virtual terminal. Its server may inherit an obsolete iTerm ID.
-    can_focus = env.get("HERDR_ENV") != "1" and not env.get("SSH_CONNECTION")
     row = dict(key=key, session_id=session, name=clean(name) or "Codex", kind=kind,
                order=state["next_order"], status="READY", last_event="",
                updated_at=now, valid_until=now + 900, turn_id="",
                run_id=clean(env.get("MX_CODEX_RUN_ID"), 128), agent_id="",
-               iterm_id=clean(env.get("ITERM_SESSION_ID"), 256) if can_focus else "",
-               tty=clean(env.get("MX_CODEX_TTY"), 128) if can_focus else "",
-               herdr=env.get("HERDR_ENV") == "1")
+               **focus_target(env))
     state["rows"].append(row)
     return row
 
@@ -158,10 +168,10 @@ def apply_event(state, payload, env=None, now=None):
     if event == "SessionStart":
         # Resume/fork can attach the same Codex identity to a different terminal.
         # Never keep a previous attachment's iTerm target or launcher identity.
-        can_focus = env.get("HERDR_ENV") != "1" and not env.get("SSH_CONNECTION")
-        row.update(run_id=run_id, herdr=env.get("HERDR_ENV") == "1",
-                   iterm_id=clean(env.get("ITERM_SESSION_ID"), 256) if can_focus else "",
-                   tty=clean(env.get("MX_CODEX_TTY"), 128) if can_focus else "")
+        row.update(run_id=run_id, **focus_target(env))
+    elif row.get("herdr") and env.get("HERDR_ENV") == "1":
+        # Populate old rows after an upgrade, without restarting an active chat.
+        row.update(focus_target(env))
     row.update(status=status, last_event=event, updated_at=now,
                valid_until=now + (45 if run_id else 900))
     if run_id:
@@ -196,7 +206,7 @@ def export_snapshot(state, now=None):
         if copy["status"] not in FINAL and now > copy["valid_until"]:
             copy["status"] = "STALE"
         # Focus metadata never travels from the remote host.
-        copy["iterm_id"] = copy["tty"] = ""
+        copy["iterm_id"] = copy["tty"] = copy["herdr_socket"] = ""
         copy["valid_until"] = max(0, copy["valid_until"] - now)
         copy["updated_at"] = max(0, now - copy["updated_at"])
         rows.append(copy)
