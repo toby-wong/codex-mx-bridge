@@ -119,7 +119,7 @@ internal static class Dashboard
             string error = "", success = "Focused iTerm";
             try
             {
-                var script = Path.Combine(Path.GetDirectoryName(typeof(CodexMxPlugin).Assembly.Location)!, "..", "focus.applescript");
+                var script = FocusScript.Read(typeof(CodexMxPlugin).Assembly);
                 using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(8));
                 if (tile.Herdr)
                 {
@@ -158,8 +158,11 @@ internal static class Dashboard
                                           CancellationToken cancellation)
     {
         var start = new ProcessStartInfo("/usr/bin/osascript")
-        { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
-        start.ArgumentList.Add(Path.GetFullPath(script));
+        {
+            UseShellExecute = false, RedirectStandardInput = true,
+            RedirectStandardError = true, RedirectStandardOutput = true
+        };
+        start.ArgumentList.Add("-");
         // Pass data through argv, never interpolate AppleScript or shell code.
         start.ArgumentList.Add(id);
         start.ArgumentList.Add(tty);
@@ -169,6 +172,9 @@ internal static class Dashboard
         var stderr = process.StandardError.ReadToEndAsync(cancellation);
         try
         {
+            await process.StandardInput.WriteAsync(script.AsMemory(), cancellation);
+            await process.StandardInput.FlushAsync(cancellation);
+            process.StandardInput.Close();
             await process.WaitForExitAsync(cancellation);
             await Task.WhenAll(stdout, stderr);
         }

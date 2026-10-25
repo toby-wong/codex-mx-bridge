@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Reflection;
 using Loupedeck.CodexMxPlugin;
 
 internal static class FocusTests
@@ -32,6 +33,13 @@ internal static class FocusTests
             { count++; return; }
             throw new Exception("Expected rejection: " + message);
         }
+
+        var assembly = typeof(FocusTests).Assembly;
+        var inMemory = Assembly.Load(File.ReadAllBytes(assembly.Location));
+        Check(string.IsNullOrEmpty(inMemory.Location), "reproduce Logi's in-memory assembly loading");
+        string script = FocusScript.Read(inMemory);
+        Check(script.Length > 0 && script == FocusScript.Read(assembly),
+              "focus script is available without any assembly filesystem path");
 
         var tile = new Tile("chat", "Codex", "WORKING", "local", ItermId: "obsolete",
             Herdr: true, SessionId: SessionId, HerdrSocket: SocketPath);
@@ -141,5 +149,33 @@ internal static class FocusTests
         if (HerdrFocus.Text(result, "type") != "agent_list")
             throw new Exception("Unexpected live Herdr response");
         Console.WriteLine($"PASS: read-only Herdr socket probe ({result.GetProperty("agents").GetArrayLength()} agents)");
+    }
+
+    public static async Task ProbeScript(string binary)
+    {
+        var assembly = Assembly.Load(File.ReadAllBytes(binary));
+        if (!string.IsNullOrEmpty(assembly.Location) || FocusScript.Read(assembly).Length == 0)
+            throw new Exception("Packaged plugin script cannot be loaded from memory");
+        Console.WriteLine("PASS: packaged plugin focus script loads from an assembly with no filesystem location");
+        if (OperatingSystem.IsMacOS())
+        {
+            // Exercise the actual packaged launcher using harmless AppleScript.
+            // This checks stdin/argv handling without selecting any user window.
+            const string probe = """
+                on run argv
+                    if (count of argv) is not 3 then error "Wrong argument count"
+                    if item 1 of argv is not "focus-probe" then error "Wrong target"
+                    if item 2 of argv is not "/dev/focus-probe" then error "Wrong tty"
+                    if item 3 of argv is not "check" then error "Wrong mode"
+                    return "ok"
+                end run
+                """;
+            var dashboard = assembly.GetType("Loupedeck.CodexMxPlugin.Dashboard", throwOnError: true)!;
+            var launch = dashboard.GetMethod("FocusIterm", BindingFlags.NonPublic | BindingFlags.Static)!;
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await (Task)launch.Invoke(null, new object[] {
+                probe, "focus-probe", "/dev/focus-probe", true, deadline.Token })!;
+            Console.WriteLine("PASS: packaged plugin passes AppleScript through stdin and focus arguments through argv");
+        }
     }
 }

@@ -15,6 +15,7 @@
       <Private>false</Private>
     </Reference>
     <None Include="package/**/*" CopyToOutputDirectory="Never" />
+    <EmbeddedResource Include="package/focus.applescript" LogicalName="CodexMxPlugin.focus.applescript" />
   </ItemGroup>
   <Target Name="CheckSdk" BeforeTargets="ResolveAssemblyReferences">
     <Error Condition="!Exists('$(PluginApiPath)')" Text="Install Logi Options+ or set -p:PluginApiPath=/absolute/path/PluginApi.dll. No mock SDK is substituted." />

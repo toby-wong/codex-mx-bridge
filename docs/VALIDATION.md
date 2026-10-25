@@ -2,6 +2,25 @@
 
 Date: 24 October 2026, Australia/Sydney.
 
+## Focus script loading fix — 25 October 2026
+
+The first live button attempt after the upgrade reported a null `path1` error.
+The focus action derived its script path from `Assembly.Location`, which can
+be empty when Logi loads the assembly from bytes. The script is now an embedded
+resource, passed to `osascript` through stdin with target values in argv.
+
+* Release build against the real Logi SDK passed with zero warnings/errors.
+* `scripts/test_all.py` passed 75 Python tests and 20 view-model/contract,
+  18 sprite, 84 Herdr focus, and 6 socket checks.
+* A regression loads an assembly from bytes, verifies its location is empty,
+  and successfully reads the embedded script.
+* `--probe-script` checked the actual packaged plugin, then invoked its
+  launcher with harmless AppleScript to verify stdin and all three arguments.
+  No user window was selected.
+
+The corrected plugin still needs installation and a live focus check. Existing
+Codex processes must load the updated hooks to supply their Herdr socket.
+
 ## Upgrade helper update — 25 October 2026
 
 `bash update.sh` upgrades an existing installation from the current checkout.
@@ -20,9 +39,10 @@ The updater and installer changes passed:
 * Read-only verification that the exact current-user process selector matches
   the running Logi Plugin Service.
 
-The live Mac upgrade/restart has not been executed. Its process-control tests
-use a simulated runner; the installed plugin and live configuration were kept
-unchanged during this validation.
+The user subsequently ran the Mac upgrade successfully, installing release
+`0.3.0-b98b88e0486b`, saving the Herdr binding, and restarting the service.
+Read-only inspection confirmed the updated plugin link and live pet rendering.
+The first focus attempt exposed the script-loading issue addressed above.
 
 ## Local Herdr focus update — 25 October 2026
 

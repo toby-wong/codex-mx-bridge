@@ -100,8 +100,10 @@ was verified; compatible local v1/v2 sheets or an explicit layout are required.
 
 Focus uses the documented AppleScript session `unique id`/`tty` and session,
 tab, and window `select` operations from the [iTerm2 scripting guide](https://iterm2.com/documentation-scripting.html).
-The script is static; values arrive as process arguments rather than source
-interpolation. The common `w...:UUID` environment format is normalized by taking
+The static script is embedded in the plugin assembly and sent to `osascript`
+on stdin, so it also works when the host loads the assembly from memory.
+Values arrive as process arguments rather than source interpolation.
+The common `w...:UUID` environment format is normalized by taking
 the suffix; this is an integration convention that still needs Mac validation.
 An explicit UUID has priority over tty so a reused tty cannot redirect a UUID
 target. A tty-only target can be reused by the OS after a pane closes; prefer
