@@ -24,7 +24,7 @@ from mxbridge.install import (combine_targets, definition, install, require_cli,
                               targets_from_manifest, validate_kiro_profile)
 from mxbridge.state import atomic_json
 
-ITEMS = ("bridge.py", "mxbridge", "plugin", "scripts", "tests", "docs", "README.md",
+ITEMS = ("bridge.py", "mxbridge", "integrations", "plugin", "scripts", "tests", "docs", "README.md",
          "global.json", "pyproject.toml", ".python-version", "install.sh", "update.sh")
 EXCLUDED = {"bin", "obj", ".git", ".tools", "__pycache__"}
 
@@ -128,6 +128,7 @@ def parse_args(argv=None):
     p.add_argument("--client", dest="clients", action="append", choices=CLIENTS,
                    help="Client to install; repeat for multiple clients (default: codex)")
     p.add_argument("--claude-settings", type=Path)
+    p.add_argument("--pi-agent-dir", type=Path, help="Pi agent directory; defaults to PI_CODING_AGENT_DIR or ~/.pi/agent")
     p.add_argument("--agent-config", type=Path, action="append",
                    help="Existing Kiro profile; repeat to select multiple profiles")
     p.add_argument("--kiro-format", choices=("v2", "v3"), default="v2")
@@ -209,6 +210,7 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
             for profile in profiles:
                 selected.append(target(client, codex_home=codex_home,
                     claude_settings=args.claude_settings, agent_config=profile,
+                    pi_agent_dir=args.pi_agent_dir,
                     kiro_format=args.kiro_format, instance=args.instance))
     else:
         selected = targets_from_manifest({"hook_targets": hook_targets})
@@ -293,7 +295,12 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
     for client, instance in dict.fromkeys((t["client"], t["instance"]) for t in selected):
         with tempfile.TemporaryDirectory(prefix="mx-install-check-") as folder:
             event = "agentSpawn" if client == "kiro" else "SessionStart"
-            payload = json.dumps(dict(session_id="install-check", hook_event_name=event, cwd="/install/check"))
+            payload = dict(session_id="install-check", hook_event_name=event, cwd="/install/check")
+            if client == "pi":
+                payload.update(schema_version=1, hook_event_name="session_start", status="READY",
+                               attachment_id="install-check", attachment_started_at=time.time(),
+                               sequence=1, activity_at=time.time(), created_at=time.time())
+            payload = json.dumps(payload)
             cmd = [str(python), str(release/"bridge.py"), "--state-dir", folder, "hook",
                    "--client", client, "--instance", instance]
             result = runner(cmd, input=payload, capture_output=True, text=True, check=True)
@@ -363,7 +370,7 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
             print("Restart Codex, then review and trust the bridge entries in /hooks (required by Codex).")
         others = sorted({LABELS[t["client"]] for t in selected if t["client"] != "codex"})
         if others:
-            print("Start new sessions for: " + ", ".join(others) + ". Use the selected Kiro profile.")
+            print("Start new sessions for: " + ", ".join(others) + ". Pi also supports /reload while idle.")
         if not hooks_only:
             print("Restart Logi Plugin Service in Options+, then map Agent slot 1–9 and Agent pages.")
     return 0

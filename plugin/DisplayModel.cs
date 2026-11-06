@@ -102,7 +102,7 @@ public static class DisplayPlan
         var lines = new List<string>();
         var source = new List<string>();
         if (options.ShowClient)
-            source.Add(tile.Client switch { "claude" => "Claude", "kiro" => "Kiro", _ => "Codex" });
+            source.Add(tile.Client switch { "claude" => "Claude", "kiro" => "Kiro", "pi" => "Pi", _ => "Codex" });
         if (options.ShowLocation)
             source.Add(tile.Host == "local" ? "local" : $"remote: {tile.Host}");
         if (source.Count > 0) lines.Add(string.Join(" · ", source));
@@ -110,6 +110,8 @@ public static class DisplayPlan
         {
             string name = tile.Name;
             if (options.NameOverrides.TryGetValue(tile.Key, out var custom)) name = custom;
+            else if (!options.UseChatNames && tile.Client == "pi" && tile.FallbackName.Length > 0)
+                name = tile.FallbackName;
             else if (options.UseChatNames && tile.Host == "local" && tile.Client == "codex" &&
                      tile.Kind != "subagent" && chatNames is not null &&
                      chatNames.TryGetValue(tile.SessionId, out var saved)) name = saved;
@@ -131,7 +133,7 @@ public static class DisplayPlan
     public static (string State, bool Moves) Animation(string status) => status switch
     {
         "WORKING" or "TOOL" or "COMPACT" => ("running", true),
-        "APPROVAL?" => ("waiting", true),
+        "APPROVAL?" or "WAITING" => ("waiting", true),
         "TURN STOP" or "STOPPED" => ("review", true),
         "EXIT ERROR" or "TURN ERROR" => ("failed", true),
         "READY" => ("idle", true),

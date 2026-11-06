@@ -81,10 +81,21 @@ internal static class HerdrFocus
         value.ValueKind == JsonValueKind.Object && value.TryGetProperty(key, out var child) &&
         child.ValueKind == JsonValueKind.String ? child.GetString()! : "";
 
-    internal static bool Matches(JsonElement agent, string session) =>
-        Text(agent, "agent") == "codex" && agent.TryGetProperty("agent_session", out var identity) &&
-        Text(identity, "agent") == "codex" && Text(identity, "kind") == "id" &&
-        Text(identity, "value") == session;
+    internal static bool Matches(JsonElement agent, Tile tile)
+    {
+        if (Text(agent, "agent") != tile.Client ||
+            !agent.TryGetProperty("agent_session", out var identity) ||
+            Text(identity, "agent") != tile.Client) return false;
+        string kind = Text(identity, "kind"), value = Text(identity, "value");
+        return tile.Client switch
+        {
+            "codex" => kind == "id" && value == tile.SessionId,
+            "pi" => kind == "path"
+                ? tile.SessionPath.Length > 0 && value == tile.SessionPath
+                : kind == "id" && value == tile.SessionId,
+            _ => false
+        };
+    }
 
     internal static JsonElement Agent(JsonElement result)
     {
@@ -97,12 +108,14 @@ internal static class HerdrFocus
     internal static async Task<HerdrFocusTarget> ResolveAsync(Tile tile, HerdrFocusOptions options,
         HerdrRequest request, CancellationToken cancellation)
     {
-        // Herdr matching below is verified only for Codex's native identity.
-        // Another client's session ID must never select a matching Codex pane.
-        if (tile.Client != "codex")
-            throw new InvalidOperationException("Herdr button focus currently supports Codex sessions only.");
+        if (tile.Client is not ("codex" or "pi"))
+            throw new InvalidOperationException("Herdr button focus currently supports Codex and Pi sessions only.");
         if (!tile.Herdr || string.IsNullOrEmpty(tile.SessionId))
             throw new InvalidOperationException("No Herdr identity; wait for a hook from the updated bridge.");
+        if (tile.Client == "pi" && tile.SessionPath.Length > 0 &&
+            (!tile.SessionPath.StartsWith('/') || tile.SessionPath.Length > 2048 ||
+             tile.SessionPath.Any(char.IsControl)))
+            throw new InvalidOperationException("Invalid Pi session path.");
         HerdrEndpoint[] endpoints;
         if (tile.RemoteHost is not null)
         {
@@ -136,7 +149,7 @@ internal static class HerdrFocus
             if (Text(list, "type") != "agent_list" || !list.TryGetProperty("agents", out var agents) ||
                 agents.ValueKind != JsonValueKind.Array)
                 throw new JsonException("Unsupported Herdr agent list");
-            foreach (var agent in agents.EnumerateArray().Where(a => Matches(a, tile.SessionId)))
+            foreach (var agent in agents.EnumerateArray().Where(a => Matches(a, tile)))
             {
                 string pane = Text(agent, "pane_id"), terminalId = Text(agent, "terminal_id");
                 if (pane.Length == 0 || terminalId.Length == 0)
@@ -146,8 +159,8 @@ internal static class HerdrFocus
         }
         if (matches.Count != 1)
             throw new InvalidOperationException(matches.Count == 0
-                ? "This Codex session has no live Herdr pane."
-                : "More than one Herdr pane reports this Codex session.");
+                ? "This session has no live Herdr pane."
+                : "More than one Herdr pane reports this session.");
         return matches[0];
     }
 
@@ -160,14 +173,14 @@ internal static class HerdrFocus
         // Fail before changing Herdr if the mapped Mac pane is gone or permission is denied.
         await terminal(endpoint.ItermId, "", true, cancellation);
         var current = Agent(await request(endpoint, "agent.get", new { target = pane }, cancellation));
-        if (!Matches(current, tile.SessionId) || Text(current, "terminal_id") != terminalId ||
+        if (!Matches(current, tile) || Text(current, "terminal_id") != terminalId ||
             Text(current, "pane_id") != pane)
             throw new InvalidOperationException("Herdr pane changed occupants; press again to refresh.");
         var focused = Agent(await request(endpoint, "agent.focus", new { target = pane }, cancellation));
-        if (!Matches(focused, tile.SessionId) || Text(focused, "terminal_id") != terminalId ||
+        if (!Matches(focused, tile) || Text(focused, "terminal_id") != terminalId ||
             Text(focused, "pane_id") != pane || !focused.TryGetProperty("focused", out var selected) ||
             selected.ValueKind != JsonValueKind.True)
-            throw new InvalidOperationException("Herdr could not confirm the selected Codex session.");
+            throw new InvalidOperationException("Herdr could not confirm the selected session.");
         await terminal(endpoint.ItermId, "", false, cancellation);
         return pane;
     }

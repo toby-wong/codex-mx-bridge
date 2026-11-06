@@ -3,6 +3,13 @@
 Checked 24 October 2026 against primary documentation and an installed CLI.
 The earlier conversation is background context, not API evidence.
 
+Pi support was added on 6 November 2026 against installed Pi 1.5.0 and
+Pi Herdr Agents 3.7.2. Its extension observes the native lifecycle, final
+`agent_settled` boundary, UI waiting, and session-manager identity APIs.
+Herdr 0.9.5 reports Pi session-file paths, which are matched separately from
+Codex's native IDs. See [Pi setup and limitations](PI.md) and the
+[source assessment](PI-INTEGRATION-PLAN.md).
+
 ## Codex CLI
 
 The release behavior reference is OpenAI's [Hooks documentation](https://learn.chatgpt.com/docs/hooks).
@@ -160,7 +167,7 @@ entry-point check, installer venv, and CI template). The shell bootstrap uses a
 private [uv install](https://docs.astral.sh/uv/reference/installer/) and
 [managed Python](https://docs.astral.sh/uv/guides/install-python/) when needed.
 An older interpreter still returns advisory `{}` for a Codex hook invocation
-and empty output for Claude/Kiro hooks, but
+and empty output for Claude/Kiro/Pi hooks, but
 normal bridge commands reject it. Installed hooks always name the 3.15 venv
 interpreter explicitly.
 

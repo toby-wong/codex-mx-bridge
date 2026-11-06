@@ -6,6 +6,8 @@ import shlex
 import subprocess
 import time
 from .adapters import CLIENTS
+from .adapters.common import identity
+from .adapters.pi import session_path
 from .state import FINAL, MAX_ROWS, STATUSES, clean
 
 
@@ -45,6 +47,14 @@ def decode(raw, now, elapsed=0):
             raise ValueError("Missing row key")
         row.update(client=item.get("client", "codex"),
                    source_instance=clean(item.get("source_instance")))
+        if row["client"] == "pi":
+            # Full native identity is matching data, never a command or Mac path.
+            row.update(session_id=identity(item.get("session_id")),
+                       fallback_name=clean(item.get("fallback_name")),
+                       session_path=session_path(item.get("session_path")),
+                       parent_session_path=session_path(item.get("parent_session_path")),
+                       parent_session_id=identity(item.get("parent_session_id"), optional=True),
+                       agent_role=clean(item.get("agent_role")))
         ttl, age = float(item.get("valid_until", 0)), float(item.get("updated_at", 0))
         if not math.isfinite(ttl) or not math.isfinite(age) or ttl < 0 or age < 0:
             raise ValueError("Invalid remote timing")

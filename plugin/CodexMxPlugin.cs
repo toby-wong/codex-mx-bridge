@@ -121,7 +121,10 @@ internal static class Dashboard
             try
             {
                 var script = FocusScript.Read(typeof(CodexMxPlugin).Assembly);
-                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                // Cold SSH authentication needs time in addition to the two
+                // identity checks and macOS terminal selection.
+                using var deadline = new CancellationTokenSource(
+                    TimeSpan.FromSeconds(tile.Herdr && tile.RemoteHost is not null ? 15 : 8));
                 if (tile.Herdr)
                 {
                     var path = Path.Combine(Path.GetDirectoryName(StatePath)!, "herdr-focus.json");

@@ -4,8 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
-CLIENTS = ("codex", "claude", "kiro")
-LABELS = {"codex": "Codex", "claude": "Claude", "kiro": "Kiro"}
+CLIENTS = ("codex", "claude", "kiro", "pi")
+LABELS = {"codex": "Codex", "claude": "Claude", "kiro": "Kiro", "pi": "Pi"}
 
 
 def clean(value, limit=80):

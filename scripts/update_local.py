@@ -174,7 +174,7 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, installer=
     if any(t["client"] == "codex" for t in hook_targets):
         print("Review the updated Codex hooks in /hooks; restart/resume Codex if it still uses the old hook path.")
     if any(t["client"] != "codex" for t in hook_targets):
-        print("Start new Claude/Kiro sessions to load their updated hook commands.")
+        print("Start new sessions to load updated integrations; idle Pi sessions can use /reload.")
     return 0
 
 

@@ -7,6 +7,9 @@ public sealed class Row
 {
     public string Key { get; set; } = "";
     public string SessionId { get; set; } = "";
+    public string SessionPath { get; set; } = "";
+    public string AgentRole { get; set; } = "";
+    public string FallbackName { get; set; } = "";
     public string Name { get; set; } = "Codex";
     public string Kind { get; set; } = "session";
     public string Client { get; set; } = "codex";
@@ -40,12 +43,14 @@ public sealed class State
 public sealed record Tile(string Key, string Name, string Status, string Host,
                           string ItermId = "", string Tty = "", string Kind = "session",
                           bool Herdr = false, string SessionId = "", string HerdrSocket = "",
-                          string Client = "codex", string? RemoteHost = null)
+                          string Client = "codex", string? RemoteHost = null,
+                          string SessionPath = "", string AgentRole = "", string FallbackName = "")
 {
     public string Header => Client switch
     {
         "claude" => $"Claude · {Host}",
         "kiro" => $"Kiro · {Host}",
+        "pi" => $"Pi · {Host}",
         _ => Host
     };
     public string Text => $"{Header}\n{(Kind == "subagent" ? "> " : "")}{Name}\n{Status}";
@@ -71,7 +76,9 @@ public static class ViewModel
         foreach (var r in state.Rows.OrderBy(r => r.Order))
             list.Add((new(r.Key, Short(r.Name, 80), Status(r), "local", r.Herdr ? "" : r.ItermId,
                          r.Herdr ? "" : r.Tty, r.Kind, r.Herdr, r.SessionId,
-                         r.Herdr ? r.HerdrSocket : "", r.Client), r, "local"));
+                          r.Herdr ? r.HerdrSocket : "", r.Client,
+                          SessionPath: r.Client == "pi" ? r.SessionPath : "", AgentRole: r.AgentRole,
+                          FallbackName: r.FallbackName), r, "local"));
         foreach (var (host, remote) in state.Remotes.OrderBy(p => p.Key, StringComparer.Ordinal))
         {
             bool offline = remote.Error.Length > 0 || now > remote.ReceivedAt + 15;
@@ -80,7 +87,9 @@ public static class ViewModel
             foreach (var r in remote.Rows.OrderBy(r => r.Order))
                 list.Add((new("remote/" + host + "/" + r.Key, Short(r.Name, 80),
                     offline ? "OFFLINE" : Status(r), Short(host), Kind: r.Kind, Client: r.Client,
-                    RemoteHost: host, Herdr: r.Herdr, SessionId: r.Herdr ? r.SessionId : ""), r, host));
+                    RemoteHost: host, Herdr: r.Herdr, SessionId: r.Herdr ? r.SessionId : "",
+                    SessionPath: r.Herdr && r.Client == "pi" ? r.SessionPath : "",
+                    AgentRole: r.AgentRole, FallbackName: r.FallbackName), r, host));
         }
         if (state.DroppedRows > 0)
             list.Add((new("overflow", "History cap", "PRUNED " + state.DroppedRows, "bridge"), null, "bridge"));

@@ -174,7 +174,7 @@ internal static class PetDisplay
 
     public static BitmapColor Background(string status) => status switch
     {
-        "APPROVAL?" => new BitmapColor(110, 65, 0),
+        "APPROVAL?" or "WAITING" => new BitmapColor(110, 65, 0),
         "WORKING" or "TOOL" or "COMPACT" => new BitmapColor(0, 55, 95),
         "TURN STOP" or "STOPPED" => new BitmapColor(0, 70, 40),
         "EXIT ERROR" or "TURN ERROR" or "READ ERROR" => new BitmapColor(105, 20, 30),

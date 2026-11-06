@@ -56,7 +56,7 @@ if (args.Length == 1)
     Check(wire.Rows.Count > 0, "Python to C# contract fixture");
     Check(ViewModel.Tiles(wire, DateTimeOffset.UtcNow.ToUnixTimeSeconds()).Count > 0, "Python tiles");
     var options = HerdrFocusOptions.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(args[0])!, "herdr-focus.json")));
-    var herdr = wire.Rows.Single(r => r.Herdr);
+    var herdr = wire.Rows.Single(r => r.Herdr && r.Client == "codex");
     Check(herdr.HerdrSocket == options.Bindings.Single().SocketPath, "Python Herdr socket/binding contract");
     Check(herdr.SessionId == "herdr-contract", "Python native session identity contract");
     var remoteBinding = options.RemoteBindings.Single();
@@ -64,13 +64,19 @@ if (args.Length == 1)
           remoteBinding.HerdrPath == "/home/user/.local/bin/herdr" && remoteBinding.RemoteSession == "work",
           "Python remote Herdr binding contract");
     var remoteHerdr = ViewModel.Tiles(wire, DateTimeOffset.UtcNow.ToUnixTimeSeconds())
-                               .Single(t => t.RemoteHost == "remote-contract");
+                               .Single(t => t.RemoteHost == "remote-contract" && t.Client == "codex");
     Check(remoteHerdr is { Herdr: true, SessionId: "herdr-contract", ItermId: "", Tty: "", HerdrSocket: "" },
           "Python SSH decoder preserves native identity without importing Mac control targets");
     Check(wire.Rows.Single(r => r.Client == "claude").Status == "TURN ERROR",
           "Python Claude error contract");
     Check(wire.Rows.Single(r => r.Client == "kiro").LastEvent == "preToolUse",
           "Python Kiro native event contract");
+    var pi = wire.Rows.Single(r => r.Client == "pi");
+    Check(pi is { SessionId: "pi-contract", SessionPath: "/home/user/.pi/sessions/pi.jsonl",
+                  Status: "WAITING", AgentRole: "frontier", Kind: "subagent" }, "Python Pi observation contract");
+    var remotePi = ViewModel.Tiles(wire, 100).Single(t => t.RemoteHost == "remote-contract" && t.Client == "pi");
+    Check(remotePi is { SessionPath: "/home/user/.pi/sessions/pi.jsonl", HerdrSocket: "", ItermId: "",
+                        SessionId: "pi-contract", AgentRole: "frontier" }, "Pi SSH identity reaches focus without local authority");
 }
 Console.WriteLine($"PASS: {count} view-model checks");
 
@@ -110,6 +116,7 @@ Console.WriteLine($"PASS: {LabelLayoutTests.Run()} label fitting checks");
 Console.WriteLine($"PASS: {ConfigPathTests.Run()} configuration path checks");
 Console.WriteLine($"PASS: {await FocusTests.Run()} Herdr focus checks");
 Console.WriteLine($"PASS: {await RemoteFocusTests.Run()} remote Herdr focus checks");
+Console.WriteLine($"PASS: {await PiFocusTests.Run()} Pi focus and display checks");
 Console.WriteLine($"PASS: {await SocketTests.Run()} Herdr socket checks");
 Console.WriteLine($"PASS: {await SshFocusTests.Run()} Herdr SSH transport checks");
 if (args is ["--probe-herdr", var socket]) await FocusTests.Probe(socket);

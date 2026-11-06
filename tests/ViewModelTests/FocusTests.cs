@@ -122,7 +122,7 @@ internal static class FocusTests
         foreach (var client in new[] { "claude", "kiro" })
         {
             calls.Clear();
-            await Reject(() => Focus(tile with { Client = client }), "supports Codex sessions only");
+            await Reject(() => Focus(tile with { Client = client }), "supports Codex and Pi sessions only");
             Check(calls.Count == 0, "another client's ID cannot select a Codex pane");
         }
         foreach (var invalid in new[] { tile with { Herdr = false }, tile with { Host = "linux" },
@@ -212,7 +212,7 @@ internal static class FocusTests
                 var target = await HerdrFocus.ResolveAsync(tile, options, transport.RequestAsync, deadline.Token);
                 var current = HerdrFocus.Agent(await transport.RequestAsync(target.Endpoint, "agent.get",
                     new { target = target.Pane }, deadline.Token));
-                if (!HerdrFocus.Matches(current, tile.SessionId) ||
+                if (!HerdrFocus.Matches(current, tile) ||
                     HerdrFocus.Text(current, "terminal_id") != target.Terminal ||
                     HerdrFocus.Text(current, "pane_id") != target.Pane)
                     throw new InvalidOperationException("Herdr pane changed occupants during the probe.");

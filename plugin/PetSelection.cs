@@ -33,7 +33,7 @@ public static class PetSelection
         {
             if (rule is null || !ValidReference(rule.Pet) ||
                 rule.Location is not ("" or "local" or "remote") ||
-                rule.Client is not ("" or "codex" or "claude" or "kiro") ||
+                rule.Client is not ("" or "codex" or "claude" or "kiro" or "pi") ||
                 !Selector(rule.Host, 255) || !Selector(rule.Key, 700) ||
                 (rule.Location.Length + rule.Client.Length + rule.Host.Length + rule.Key.Length == 0) ||
                 (rule.Host.Length > 0 && rule.Location == "local"))

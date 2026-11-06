@@ -131,6 +131,7 @@ def main(argv=None):
     p.add_argument("--codex-home", type=Path, default=Path(os.environ.get("CODEX_HOME", Path.home()/".codex")))
     p.add_argument("--client", choices=CLIENTS, default="codex")
     p.add_argument("--claude-settings", type=Path)
+    p.add_argument("--pi-agent-dir", type=Path, help="Pi agent directory; defaults to PI_CODING_AGENT_DIR or ~/.pi/agent")
     p.add_argument("--agent-config", type=Path)
     p.add_argument("--kiro-format", choices=("v2", "v3"), default="v2",
                    help="Kiro profile hook shape; v2 object or v3 inline array")
@@ -188,6 +189,7 @@ def main(argv=None):
         try:
             selected = target(args.client, codex_home=args.codex_home,
                               claude_settings=args.claude_settings, agent_config=args.agent_config,
+                              pi_agent_dir=args.pi_agent_dir,
                               kiro_format=args.kiro_format, instance=args.instance,
                               require_existing=not args.remove)
             options = dict(client=args.client, kiro_format=args.kiro_format)
@@ -208,6 +210,8 @@ def main(argv=None):
         if args.apply and not args.remove:
             if args.client == "codex":
                 print("Merged. Restart Codex, then review and trust entries in /hooks.", file=sys.stderr)
+            elif args.client == "pi":
+                print("Pi extension installed. Use /reload in idle Pi sessions, or start a new session.", file=sys.stderr)
             else:
                 print(f"Merged {LABELS[args.client]} hooks. Start a new session using this configuration.",
                       file=sys.stderr)

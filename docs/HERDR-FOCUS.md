@@ -1,11 +1,12 @@
 # Focus a Herdr chat from an MX button
 
 Pressing a Herdr agent tile selects the pane currently reporting that
-Codex chat, then brings its configured iTerm2 window, tab, and pane forward.
-This requires the updated plugin, Herdr's Codex integration, and one explicit
+Codex or Pi chat, then brings its configured iTerm2 window, tab, and pane forward.
+This requires the updated plugin, Herdr's corresponding agent integration, and one explicit
 binding for each Herdr server/session. Local bindings use a Unix socket;
 remote bindings use ordinary OpenSSH and the remote Herdr CLI. Both paths
-currently match Codex native session IDs.
+match Codex native session IDs or Pi's exact session-file paths. See
+[Pi setup](PI.md) for its extension and child-agent behavior.
 
 ## Bind a local terminal
 
@@ -132,13 +133,14 @@ source/session replaces only that entry. To remove it:
 
 ## What a press checks
 
-1. The tile is marked as Herdr and carries a Codex session ID.
+1. The tile is marked as Herdr and carries a Codex or Pi session identity.
 2. A local row's socket has an explicit iTerm2 binding; a socket-less local
    row searches only bound local servers. A remote row's full source alias
    selects only explicitly bound SSH targets/sessions. Its display caption,
    socket path and terminal metadata cannot choose a local server or Mac pane.
-3. `agent.list` identifies exactly one current Codex agent whose
-   `agent_session.kind` is `id` and whose value matches the chat. For a
+3. `agent.list` identifies exactly one agent of the same client. Codex matches
+   an `id`; Pi matches its full `path` or an explicitly reported native `id`.
+   No filename or tab-position inference is used. For a
    socket-less local row or remote source with multiple sessions, every
    applicable bound server must be reachable and exactly one matching identity
    must exist across them all.
@@ -147,7 +149,8 @@ source/session replaces only that entry. To remove it:
 6. `agent.focus` selects it and returns the expected identity; the iTerm2
    window/tab/pane is then selected and activated.
 
-Focus requests have an eight-second deadline; closing the action's SSH
+Local focus requests have an eight-second deadline; remote requests have
+15 seconds to allow for cold SSH authentication. Closing the action's SSH
 connection has a separate one-second cleanup limit. Simultaneous button presses
 are ignored while a focus action is running. Errors appear in
 `~/.local/state/codex-mx-bridge/focus-status.txt`, together with the selected

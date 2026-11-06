@@ -4,6 +4,7 @@ import os
 import json
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 
@@ -15,6 +16,10 @@ from mxbridge.state import Store, apply_event, export_snapshot
 from mxbridge.ssh import decode
 
 subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], cwd=ROOT, check=True)
+if shutil.which("node"):
+    subprocess.run(["node", "--test", "tests/pi_extension.test.mjs"], cwd=ROOT, check=True)
+else:
+    print("SKIP: Pi extension tests require Node.js")
 with tempfile.TemporaryDirectory(prefix="mx-contract-") as state:
     subprocess.run([sys.executable, "bridge.py", "--state-dir", state, "demo"], cwd=ROOT, check=True)
     with Store(state).transaction() as wire:
@@ -24,8 +29,13 @@ with tempfile.TemporaryDirectory(prefix="mx-contract-") as state:
                     env={}, client="claude")
         apply_event(wire, dict(session_id="client-contract", hook_event_name="preToolUse"),
                     env={}, client="kiro")
+        apply_event(wire, dict(schema_version=1, session_id="pi-contract",
+                    session_path="/home/user/.pi/sessions/pi.jsonl", hook_event_name="session_start",
+                    status="WAITING", mode="tui", kind="subagent", launch_id="launch-id", agent_role="frontier",
+                    attachment_id="fixture", attachment_started_at=100, sequence=1, activity_at=100, created_at=80),
+                    env=dict(HERDR_ENV="1", HERDR_SOCKET_PATH="/tmp/mx-herdr.sock"), now=100, client="pi")
         exported = export_snapshot(wire, 100)
-        exported["rows"] = [row for row in exported["rows"] if row["session_id"] == "herdr-contract"]
+        exported["rows"] = [row for row in exported["rows"] if row["session_id"] in {"herdr-contract", "pi-contract"}]
         # Decoder must strip even injected local control fields.
         exported["rows"][0].update(herdr_socket="/tmp/injected.sock", iterm_id="untrusted", tty="/dev/tty0")
         wire["remotes"]["remote-contract"] = dict(rows=decode(json.dumps(exported), 100), received_at=100, error="")

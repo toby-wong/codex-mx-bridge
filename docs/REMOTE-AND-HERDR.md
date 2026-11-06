@@ -144,7 +144,7 @@ to Herdr itself for this bridge transport.
    ```
 
    The remote Herdr server must already be running and reporting native Codex
-   session IDs. Add `--remote-session NAME` if the client attached with
+   session IDs or Pi session-file paths. Add `--remote-session NAME` if the client attached with
    `--session NAME`. Bindings reload on each press; see
    [Herdr focus setup and checks](HERDR-FOCUS.md).
 
@@ -176,14 +176,15 @@ to Herdr itself for this bridge transport.
 
 ## What remains unsupported
 
-Local and remote Herdr Codex focus require an explicit
+Local and remote Herdr Codex and Pi focus require an explicit
 [Mac terminal binding](HERDR-FOCUS.md). Plain SSH sessions without Herdr do
 not have a button focus target. The bridge does not start Herdr, attach clients,
 switch a client between saved machines, send prompts, approve requests, or type
 into an agent terminal. Herdr focus for Claude/Kiro is not enabled.
 
 Linux-side iTerm metadata is never used to control a Mac terminal. Remote
-snapshots do not include prompts, tool inputs/results, full working paths, or
-assistant message text, but project labels and session IDs are still private
+snapshots do not include prompts, tool inputs/results, or assistant message
+text. Pi's exact session-file path is included to match its Herdr identity;
+project labels, session paths, and session IDs are private
 metadata. SSH encryption and local user-only file permissions protect transport
 and storage; processes running as your account can still read or alter them.

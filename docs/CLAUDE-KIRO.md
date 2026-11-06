@@ -86,8 +86,8 @@ an inferred permission-wait, compaction, or subagent status from unrelated field
 
 Each client/session/child/optional `--instance` tuple has its own identity.
 The new clients' button headers include `Claude` or `Kiro`. Direct local iTerm
-focus uses the existing terminal attachment; Herdr button focus remains limited
-to Codex. New clients cannot select a Codex pane merely because IDs match.
+focus uses the existing terminal attachment; Herdr button focus supports Codex
+and Pi. Claude and Kiro cannot select another client's pane merely because IDs match.
 
 ## Liveness and diagnostics
 

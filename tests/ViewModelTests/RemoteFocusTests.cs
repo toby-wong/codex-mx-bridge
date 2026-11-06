@@ -107,7 +107,7 @@ internal static class RemoteFocusTests
         foreach (string client in new[] { "claude", "kiro" })
         {
             calls.Clear();
-            await Reject(() => Focus(tile with { Client = client }), "supports Codex sessions only");
+            await Reject(() => Focus(tile with { Client = client }), "supports Codex and Pi sessions only");
             Check(calls.Count == 0, "a different remote client cannot impersonate a Codex session");
         }
 

@@ -1,12 +1,12 @@
 # Codex MX Bridge
 
-Display Codex, Claude Code, and Kiro CLI lifecycle events on Logitech MX Creative Console. Runs beside
+Display Codex, Claude Code, Kiro CLI, and Pi lifecycle events on Logitech MX Creative Console. Runs beside
 Herdr and can collect Linux-hosted agents over SSH. This is a working source
 implementation with portable tests and an SDK-validated plugin package; physical
 hardware and macOS integration still need the acceptance checks below.
 
 Repository: [toby-wong/codex-mx-bridge](https://github.com/toby-wong/codex-mx-bridge)
-(public). Version 0.3.0. Documentation verified 25 October 2026.
+(public). Version 0.3.0. Pi integration added 6 November 2026.
 
 ![Animated Logitech MX Creative Console with monthly-salary-cat showing ready, working, approval, turn stop, and exit error states](docs/assets/console-preview.gif)
 
@@ -23,13 +23,15 @@ animations and status colours at 4 fps.
   state, optional process launcher, hook installer, SSH collector, and simulator.
 * Explicit [Claude Code and Kiro CLI integrations](docs/CLAUDE-KIRO.md), with
   separate session identities and settings that survive bridge upgrades.
+* [Pi and Pi Herdr Agents integration](docs/PI.md), with native session and
+  child identities, activity events, and local/cloud collection.
 * C# .NET 8 plugin built against the official Logi Actions SDK `PluginApi.dll`.
   Nine slot actions, a page adjustment for the dial, and a next-page button.
 * Optional local pet sprite-sheet import and animated button theme, with
   configurable chat, location, client and status labels, 1–8 requested fps,
   still poses, and text fallback. Import uses the
   optional Pillow 13 extra; hooks/SSH remain standard-library-only.
-* Direct iTerm2 pane focus on a button press. Local and remote Herdr Codex chats
+* Direct iTerm2 pane focus on a button press. Local and remote Herdr Codex and Pi chats
   support focus with an explicit [terminal binding](docs/HERDR-FOCUS.md),
   including clients attached through `herdr --remote`.
 * Unit/integration tests, a real-CLI offline hook smoke test, and build/pack tools.
@@ -46,6 +48,8 @@ animations and status colours at 4 fps.
   individual chat. Pet artwork is downloaded separately from Codex Pets.
 * [Marketplace publishing assessment](docs/MARKETPLACE-PUBLISHING.md), including
   the official submission route and remaining distribution work.
+* [Pi integration assessment and plan](docs/PI-INTEGRATION-PLAN.md), including
+  the native identity and lifecycle contracts.
 
 No OpenAI API key is needed by the bridge. Codex retains its own normal login.
 No Codex internal database, transcript parser, terminal screen scraper, or
@@ -232,6 +236,7 @@ These are observations, not a complete agent state machine. In particular,
 | `WORKING` | Prompt submitted, tool returned, or compaction finished |
 | `TOOL` | A supported local tool is about to run |
 | `APPROVAL?` | Codex or Claude was about to request permission |
+| `WAITING` | Pi is waiting on a user-facing extension dialog |
 | `COMPACT` | Compaction started |
 | `TURN STOP` | Main turn reached the Stop hook; another hook may continue it |
 | `TURN ERROR` | Claude reported a turn failure; a new prompt can resume the session |

@@ -38,8 +38,8 @@ def validate_pet_rules(rules, default_pet):
             if not isinstance(value, str) or len(value) > limit or (value and (
                     not value.strip() or not value.isprintable())):
                 raise ValueError("Invalid pet rule selector")
-        if rule.get("location", "") not in {"", "local", "remote"} or rule.get("client", "") not in {"", "codex", "claude", "kiro"}:
-            raise ValueError("Pet rule location must be local/remote and client must be codex/claude/kiro")
+        if rule.get("location", "") not in {"", "local", "remote"} or rule.get("client", "") not in {"", "codex", "claude", "kiro", "pi"}:
+            raise ValueError("Pet rule location must be local/remote and client must be codex/claude/kiro/pi")
         if not any(rule.get(field) for field in ("location", "client", "host", "key")):
             raise ValueError("A pet rule needs a selector; use pet for the default")
         if rule.get("host") and rule.get("location") == "local":

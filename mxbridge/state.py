@@ -18,7 +18,7 @@ EVENT_STATUS = {
     "SubagentStart": "WORKING", "SubagentStop": "STOPPED", "Stop": "TURN STOP",
     "StopFailure": "TURN ERROR", "Interrupt": "INTERRUPTED",
 }
-STATUSES = set(EVENT_STATUS.values()) | {"EXIT ERROR", "STALE", "NO HOOKS"}
+STATUSES = set(EVENT_STATUS.values()) | {"EXIT ERROR", "STALE", "NO HOOKS", "WAITING"}
 
 
 def default_dir():
@@ -136,6 +136,8 @@ def apply_event(state, payload, env=None, now=None, *, client="codex", instance=
     observed = normalize(client, payload, instance)
     if observed is None:
         return False
+    if client == "pi":
+        return apply_pi_observation(state, observed, env, now)
     event, sid, agent = observed.name, observed.session_id, observed.child_id
     key = observed.key
     # A nested CLI must not join another client's launcher heartbeat/exit scope.
@@ -191,6 +193,67 @@ def apply_event(state, payload, env=None, now=None, *, client="codex", instance=
         row["turn_id"] = ""
     state.setdefault("hook_health", {})[client] = dict(last_received_at=now,
                                                        last_event=observed.native_name)
+    return True
+
+
+def apply_pi_observation(state, event, env, now):
+    """Snapshots are sequenced per attachment; leases do not imply activity."""
+    row = next((r for r in state["rows"] if r["key"] == event.key and
+                r.get("client") == "pi" and r.get("source_instance", "") == event.instance), None)
+    generation = (event.started_at, event.attachment)
+    if row is not None:
+        previous = (row.get("pi_started_at", 0), row.get("pi_attachment", ""))
+        if generation < previous or (generation == previous and event.sequence <= row.get("pi_sequence", 0)):
+            return False
+        if generation == previous and row["status"] == "CLOSED" and event.status != "CLOSED":
+            return False
+    # A nested RPC/print Pi has no independently focusable terminal.
+    target_env = env if event.mode == "tui" else {}
+    run_id = (clean(env.get("MX_CODEX_RUN_ID"), 128)
+              if env.get("MX_BRIDGE_CLIENT") == "pi" and
+              env.get("MX_BRIDGE_INSTANCE", "") == event.instance else "")
+    if run_id:
+        state["rows"] = [r for r in state["rows"] if r["key"] != "@run/" + run_id]
+    is_new = row is None
+    if is_new:
+        row = new_row(state, event.key, event.session_id, event.label, now, target_env,
+                      event.kind, "pi", event.instance)
+        row["created_at"] = min(now, event.created_at)
+    status = event.status
+    if status == "READY" and not (
+            event.name == "session_start" and event.source != "reload"):
+        if row["status"] in {"READY", "TURN STOP", "TURN ERROR", "INTERRUPTED"}:
+            status = row["status"]
+    row.update(name=event.label, fallback_name=event.fallback_name, kind=event.kind, session_path=event.session_path,
+               agent_id=event.launch_id, agent_role=event.role, run_id=run_id,
+               pi_attachment=event.attachment, pi_started_at=event.started_at,
+               pi_sequence=event.sequence, status=status, last_event=event.native_name,
+               valid_until=0 if status == "CLOSED" else now + 45,
+               **focus_target(target_env))
+    # The emitter carries the last actual activity through heartbeats/reloads.
+    previous_activity = 0 if is_new else row["updated_at"]
+    activity = event.activity_at or previous_activity or now
+    row["updated_at"] = max(previous_activity, min(now, activity))
+    row["parent_session_path"] = event.parent_path if event.kind == "subagent" else ""
+    row["parent_session_id"] = ""
+    links = state.setdefault("pi_links", [])
+    if event.child is not None:
+        links[:] = [link for link in links if not (
+            link["instance"] == event.instance and link["path"] == event.child["path"])]
+        links.append(dict(instance=event.instance, **event.child,
+                          parent_path=event.session_path, parent_id=event.session_id))
+        del links[:-MAX_ROWS]
+    # Parent tool metadata can precede or follow the child's first observation.
+    for child in state["rows"]:
+        if child.get("client") != "pi" or child.get("kind") != "subagent":
+            continue
+        match = next((link for link in reversed(links) if
+                      link["instance"] == child.get("source_instance", "") and
+                      link["path"] == child.get("session_path") and
+                      link["launch_id"] == child.get("agent_id")), None)
+        if match:
+            child.update(parent_session_path=match["parent_path"], parent_session_id=match["parent_id"])
+    state.setdefault("hook_health", {})["pi"] = dict(last_received_at=now, last_event=event.native_name)
     return True
 
 

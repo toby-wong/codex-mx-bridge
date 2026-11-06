@@ -1,8 +1,8 @@
 """Select an explicit client; payload fields never choose their own adapter."""
-from . import claude, codex, kiro
+from . import claude, codex, kiro, pi
 from .common import CLIENTS, LABELS, Event, identity
 
-ADAPTERS = {"codex": codex, "claude": claude, "kiro": kiro}
+ADAPTERS = {"codex": codex, "claude": claude, "kiro": kiro, "pi": pi}
 
 
 def normalize(client, payload, instance=""):

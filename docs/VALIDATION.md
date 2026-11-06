@@ -1,6 +1,44 @@
 # Validation record
 
-Latest validation: 25 October 2026, Australia/Sydney.
+Latest validation: 6 November 2026, Australia/Sydney.
+
+## Pi and Pi Herdr Agents — 6 November 2026
+
+* The full suite passed 143 Python tests, six Node extension tests, and
+  505 C# checks. Coverage includes attachment ordering, reloads, native child
+  identity, resume deduplication, waiting and compaction, writer failure,
+  installation preservation, SSH sanitization, labels, pets, and focus races.
+* Native Pi 1.5.0 dispatch passed on macOS and the Linux cloud desktop with
+  an isolated deterministic provider. Parent and child processes, tools, final
+  settlement, resumed child identity, errors, and shutdown were observed
+  without model requests.
+* Pi Herdr Agents 3.7.2 launched real persistent children through Herdr 0.9.5
+  on both machines. The installed bridge reported each child's native session,
+  role, and parent association. Fresh requests and `/reload` were checked in
+  these temporary sessions.
+* The installed plugin selected local and remote Pi parents and children
+  before and after moving the Herdr tabs and the outer iTerm tab. The selected
+  session path, pane, terminal ID, and iTerm UUID were checked after each action;
+  original focus and tab order were restored.
+* A cold SSH attempt exceeded the old eight-second limit. Remote focus now
+  allows 15 seconds; local focus retains eight seconds and SSH cleanup retains
+  its separate one-second limit.
+* The Release build passed against the real pinned Logitech 6.1.4.22672 SDK.
+  The Mac plugin and both hosts' Pi extensions were installed, and the cloud
+  collector was updated to the new exporter.
+* Ten protected local configuration files and nine cloud files retained their
+  original hashes, including Pi settings, models, role definitions, native
+  Herdr extensions, and the Mac display configuration. The stale local/remote
+  terminal bindings were deliberately refreshed after matching live processes
+  to their current iTerm UUIDs.
+
+Live focus was invoked through the installed plugin's button handler, using
+separate test state. Physical button presses and LCD appearance were not
+rechecked. Existing user Pi sessions load the extension after their own
+`/reload` while idle, or on their next start.
+
+Private receipt:
+`~/.local/share/codex-mx-bridge/backups/pi-verification-2026-11-06.json`.
 
 ## Button focus binding and fitted labels — 25 October 2026
 

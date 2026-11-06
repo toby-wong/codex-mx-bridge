@@ -24,6 +24,9 @@ def definition(script, python=None, *, client="codex", kiro_format="v2", instanc
     if client not in CLIENTS or kiro_format not in {"v2", "v3"}:
         raise ValueError("Unsupported hook client or Kiro format")
     identity(instance, optional=True, limit=80)
+    if client == "pi":
+        from . import pi_install
+        return pi_install.definition(script, python or sys.executable, instance)
     argv = [python or sys.executable, str(Path(script).resolve()), "hook"]
     if client != "codex":
         argv += ["--client", client]
@@ -108,6 +111,9 @@ def merge(existing, proposed, *, client="codex", kiro_format="v2"):
 
 
 def install(path, proposed, apply=False, *, client="codex", kiro_format="v2"):
+    if client == "pi":
+        from . import pi_install
+        return pi_install.install(path, proposed, apply)
     path = Path(path).expanduser()
     before = path.read_bytes() if path.exists() else None
     existing = json.loads(before) if before is not None else {}
@@ -126,7 +132,7 @@ def install(path, proposed, apply=False, *, client="codex", kiro_format="v2"):
     return result
 
 
-def target(client, *, codex_home=None, claude_settings=None, agent_config=None,
+def target(client, *, codex_home=None, claude_settings=None, agent_config=None, pi_agent_dir=None,
            kiro_format="v2", instance="", require_existing=True):
     """Resolve one explicit scope; Kiro never guesses which profile to rewrite."""
     if client not in CLIENTS or kiro_format not in {"v2", "v3"}:
@@ -137,13 +143,16 @@ def target(client, *, codex_home=None, claude_settings=None, agent_config=None,
     elif client == "claude":
         path = (Path(claude_settings) if claude_settings else
                 Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home()/".claude"))/"settings.json")
+    elif client == "pi":
+        directory = Path(pi_agent_dir or os.environ.get("PI_CODING_AGENT_DIR", Path.home()/".pi/agent"))
+        path = directory.expanduser().resolve() / "extensions/codex-mx-bridge.ts"
     else:
         if agent_config is None:
             raise ValueError("Kiro requires --agent-config with an existing user-owned agent profile")
         path = Path(agent_config).expanduser()
         if require_existing and not path.is_file():
             raise ValueError("Kiro --agent-config must name an existing agent profile")
-    return dict(client=client, path=str(path.expanduser().resolve()),
+    return dict(client=client, path=str(path if client == "pi" else path.expanduser().resolve()),
                 kiro_format=kiro_format, instance=instance)
 
 
@@ -156,7 +165,7 @@ def require_cli(client, *, runner=subprocess.run, which=shutil.which):
         return executable
     result = runner([executable, "--version"], capture_output=True, text=True, timeout=10)
     match = re.search(r"\b(\d+)\.(\d+)\.(\d+)\b", result.stdout or "")
-    minimum = (2, 1, 295) if client == "claude" else (2, 0, 0)
+    minimum = {"claude": (2, 1, 295), "kiro": (2, 0, 0), "pi": (1, 5, 0)}[client]
     if result.returncode or not match or tuple(map(int, match.groups())) < minimum:
         version = ".".join(map(str, minimum))
         raise ValueError(f"{LABELS[client]} CLI {version} or later is required for these hooks")
