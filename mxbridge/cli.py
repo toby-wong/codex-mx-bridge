@@ -184,6 +184,12 @@ def main(argv=None):
     p.add_argument("--sheet", type=Path, required=True)
     p.add_argument("--name", required=True)
     p.add_argument("--layout", type=Path, help="Explicit atlas layout for another sprite version")
+    p = sub.add_parser("settings", help="Open the local settings and pet app")
+    p.add_argument("--no-open", action="store_true", help="Print the private app URL instead of opening a browser")
+    p.add_argument("--foreground", action="store_true", help="Run the local server in this terminal")
+    p.add_argument("--port", type=int, default=0, help="Loopback port; defaults to an available port")
+    p.add_argument("--stop", action="store_true", help="Stop the settings app; agent collection continues")
+    p.add_argument("--install-app", action="store_true", help="Create a macOS launcher in ~/Applications")
     args = parser.parse_args(argv)
     if args.action == "install-hooks":
         try:
@@ -225,6 +231,27 @@ def main(argv=None):
                 print("{}")
             return 0
     store = Store(args.state_dir)
+    if args.action == "settings":
+        from .settings_launch import install_current_app, launch as launch_settings, serve
+        try:
+            if not 0 <= args.port <= 65535:
+                raise ValueError("Port must be between 0 and 65535")
+            if args.stop and (args.foreground or args.install_app):
+                raise ValueError("--stop cannot be combined with --foreground or --install-app")
+            if args.install_app:
+                if sys.platform != "darwin":
+                    raise ValueError("The Finder launcher is available on macOS; use settings on Linux")
+                app, installed_command = install_current_app(store.directory)
+                print(f"Mac app: {app}")
+                if not args.foreground:
+                    return subprocess.run(installed_command + (["--no-open"] if args.no_open else []) +
+                                          (["--port", str(args.port)] if args.port else [])).returncode
+            if args.foreground:
+                serve(store.directory, port=args.port, open_browser=not args.no_open)
+                return 0
+            return launch_settings(store.directory, port=args.port, open_browser=not args.no_open, stop=args.stop)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
     if args.action == "herdr-focus":
         from . import focus
         try:

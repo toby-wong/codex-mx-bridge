@@ -348,6 +348,10 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
     launcher = bin_dir/"codex-mx"
     launcher.write_text("#!/bin/sh\nexec "+shlex.join([str(python), str(release/"bridge.py")])+ ' "$@"\n', encoding="utf-8")
     launcher.chmod(0o700)
+    if platform == "darwin" and not hooks_only:
+        from mxbridge.settings_launch import install_app
+        settings_app = install_app([str(launcher), "settings"], prefix / "Codex MX Bridge.app")
+        print(f"Settings app: {settings_app}")
     old = previous or {}
     keep_plugin = platform == "darwin" and hooks_only and bool(old.get("plugin_link"))
     saved_codex = next((str(Path(t["path"]).parent) for t in selected if t["client"] == "codex"),

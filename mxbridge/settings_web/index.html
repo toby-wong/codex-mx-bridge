@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Codex MX Bridge</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to settings</a>
+  <aside class="rail">
+    <div class="brand"><img src="/icon.svg" alt="" width="38" height="38"><div>Codex MX<span>Bridge settings</span></div></div>
+    <nav aria-label="Settings sections">
+      <button type="button" data-tab="display" aria-current="page"><span aria-hidden="true">▦</span>Display</button>
+      <button type="button" data-tab="pets"><span aria-hidden="true">♧</span>Pet library</button>
+      <button type="button" data-tab="rules"><span aria-hidden="true">⇄</span>Assignments</button>
+      <button type="button" data-tab="chats"><span aria-hidden="true">☷</span>Chats &amp; names</button>
+      <button type="button" data-tab="bridge"><span aria-hidden="true">⌁</span>Bridge &amp; focus</button>
+    </nav>
+    <div class="rail-bottom">
+      <div class="connection"><span id="connection-dot" class="dot"></span><span id="connection">Connecting…</span></div>
+      <span id="version" class="muted"></span>
+      <button id="quit" class="text-button" type="button">Quit settings app</button>
+    </div>
+  </aside>
+  <main id="main" tabindex="-1">
+    <header class="page-header">
+      <div><div class="eyebrow">YOUR CONSOLE, YOUR WAY</div><h1 id="page-title">Display</h1><p id="page-description">Choose what appears on your agent buttons.</p></div>
+      <div class="save-actions"><span id="save-state" class="muted">Loading settings…</span><button id="discard" class="secondary" type="button" disabled>Discard</button><button id="save" class="primary" type="button" disabled>Save changes</button></div>
+    </header>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <div id="conflict" class="notice warning" role="alert" hidden><span>The file changed elsewhere. Your unsaved changes are still here.</span><button id="reload-file" class="secondary" type="button">Discard edits &amp; reload file</button></div>
+    <div id="loading" class="empty">Connecting to your local bridge…</div>
+    <div id="app" hidden>
+      <section id="view-display" class="view">
+        <div class="display-layout">
+          <div class="settings-stack">
+            <section class="surface">
+              <h2>Appearance</h2>
+              <div class="field-row"><label for="mode">Button style<span>Animated pets or text captions.</span></label><select id="mode" data-setting="mode"><option value="pet">Pet + captions</option><option value="text">Text only</option></select></div>
+              <div class="field-row"><label for="default-pet">Default pet<span>Used when no assignment matches.</span></label><select id="default-pet" data-setting="pet"></select></div>
+              <div class="field-row"><label for="animate">Animate pets<span>Let the pose reflect agent activity.</span></label><input class="switch" type="checkbox" id="animate" data-setting="animate"></div>
+              <div class="field-row"><label for="fps">Animation speed<span>Requested rate; device playback may vary.</span></label><div class="range-control"><input id="fps" data-setting="fps" type="range" min="1" max="8" step="1"><output id="fps-value" for="fps">4 fps</output></div></div>
+            </section>
+            <section class="surface">
+              <div class="section-heading"><h2>Captions</h2><button id="pet-only" class="text-button" type="button">Pet only</button></div>
+              <div class="field-row"><label for="show_name">Chat name<span>The saved name, project label, or your override.</span></label><input class="switch" type="checkbox" id="show_name" data-setting="show_name"></div>
+              <div class="field-row"><label for="show_location">Local / remote<span>Include the source name for remote chats.</span></label><input class="switch" type="checkbox" id="show_location" data-setting="show_location"></div>
+              <div class="field-row"><label for="show_client">Agent client<span>Codex, Claude, Kiro, or Pi.</span></label><input class="switch" type="checkbox" id="show_client" data-setting="show_client"></div>
+              <div class="field-row"><label for="show_status">Status text<span>Hide this to communicate state through the pet.</span></label><input class="switch" type="checkbox" id="show_status" data-setting="show_status"></div>
+              <div class="field-row"><label for="use_chat_names">Prefer saved chat names<span>Use a saved title where the integration supplies one.</span></label><input class="switch" type="checkbox" id="use_chat_names" data-setting="use_chat_names"></div>
+            </section>
+            <section class="surface">
+              <h2>Which chats appear</h2>
+              <label class="sr-only" for="chat-view">Chat view</label><select id="chat-view" data-setting="chat_view"></select>
+              <p id="view-help" class="help"></p>
+            </section>
+          </div>
+          <aside class="preview-panel">
+            <div class="section-heading"><h2>Button preview</h2><span class="tag">Draft</span></div>
+            <label class="sr-only" for="preview-source">Preview source</label><select id="preview-source"><option value="live">Your current chats</option><option value="sample">Sample agents</option></select>
+            <div class="keypad"><div id="preview-grid" class="key-grid"></div><div class="keypad-footer"><button id="previous-page" type="button" aria-label="Previous preview page">‹</button><span id="page-number">1 / 1</span><button id="next-page" type="button" aria-label="Next preview page">›</button></div></div>
+            <p id="preview-caption" class="help"></p>
+            <p class="preview-note">Browser approximation. The console uses its own font fitting and rendering.</p>
+            <div class="save-note"><span class="dot"></span><p>Save once. The plugin picks up display changes automatically.</p></div>
+          </aside>
+        </div>
+      </section>
+      <section id="view-pets" class="view" hidden>
+        <div class="section-heading"><p id="library-count" class="muted"></p><a class="secondary button-link" href="https://codex-pets.net/#/" target="_blank" rel="noopener noreferrer">Browse community pets ↗</a></div>
+        <div id="pet-library" class="pet-grid"></div>
+        <section class="surface import-surface">
+          <h2>Add a pet</h2><p class="help">Paste a pet link or choose a downloaded file. Artwork is stored on this computer.</p>
+          <form id="pet-import" class="import-form">
+            <label class="import-source">Import from<select id="pet-source"><option value="url">Remote URL</option><option value="file">File on this computer</option></select></label>
+            <label id="pet-url-field">Pet URL<input id="pet-url" type="url" maxlength="4096" placeholder="https://codex-pets.net/#/pets/banana-cat" required><span class="help">Codex Pets page or a direct HTTPS ZIP, PNG, or WebP link · up to 20 MiB</span></label>
+            <label id="pet-file-field" hidden>Pet file<input id="pet-file" type="file" accept=".zip,.png,.webp" disabled><span class="help">.codex-pet.zip, PNG, or WebP · up to 20 MiB</span></label>
+            <label>Library name<input id="pet-name" pattern="[a-zA-Z0-9_-]{1,48}" maxlength="48" placeholder="my-pet" required><span class="help">Letters, numbers, hyphens, and underscores.</span></label>
+            <details><summary>Custom sprite layout</summary><label>Layout JSON<input id="pet-layout" type="file" accept=".json"><span class="help">Only needed for an atlas with a different layout.</span></label></details>
+            <button id="import-pet" class="primary" type="submit">Import pet</button><span id="import-status" class="help" role="status"></span>
+          </form>
+        </section>
+      </section>
+      <section id="view-rules" class="view" hidden>
+        <div class="notice subtle">Rules are checked from top to bottom. All fields in a rule must match; the last matching rule wins.</div>
+        <div id="rules" class="rule-list"></div>
+        <button id="add-rule" class="secondary" type="button">+ Add assignment</button>
+        <p class="help">Use broad rules first, then exceptions for a client, host, or individual chat. Up to 64 rules and 16 selected pet references.</p>
+      </section>
+      <section id="view-chats" class="view" hidden>
+        <div class="chat-tools"><label class="sr-only" for="chat-search">Find a chat</label><input id="chat-search" type="search" placeholder="Find a chat, client, or host…"><span id="chat-count" class="muted"></span></div>
+        <p class="help">Names and individual pet choices follow the chat when buttons reorder. Child agents have their own entries.</p>
+        <div class="table-wrap"><table><thead><tr><th scope="col">Chat</th><th scope="col">Display name</th><th scope="col">Pet assignment</th></tr></thead><tbody id="chat-rows"></tbody></table></div>
+        <details class="surface"><summary>Names for chats outside the current snapshot</summary><div id="other-names"></div><button id="add-name" class="secondary" type="button">+ Add name override</button></details>
+      </section>
+      <section id="view-bridge" class="view" hidden>
+        <section class="surface"><h2>Sources</h2><div id="sources" class="source-list"></div><p id="state-error" class="help"></p></section>
+        <section class="surface">
+          <div class="section-heading"><h2>Herdr button switching</h2><span class="tag">Explicit terminal targets</span></div>
+          <p class="help">Bind each Herdr session to the outer iTerm pane that displays it. Use the session UUID from that outer shell’s <code>ITERM_SESSION_ID</code>; tab numbers can change.</p>
+          <h3>Local sessions</h3><div id="local-bindings"></div><button id="add-local-binding" class="secondary" type="button">+ Local binding</button>
+          <h3>Remote sessions</h3><div id="remote-bindings"></div><button id="add-remote-binding" class="secondary" type="button">+ Remote binding</button>
+          <p class="help">Remote switching uses an existing SSH alias and host trust. Save bindings to update the plugin’s targets.</p>
+        </section>
+        <section class="surface"><h2>Files &amp; portability</h2><p class="help">Settings stay on this computer. Export display settings to keep a copy or import them on another installation; install the referenced pets there separately.</p><div id="config-paths" class="file-paths"></div><div class="button-row"><button id="export-config" class="secondary" type="button">Export display settings</button><label class="secondary button-link file-button">Import display settings<input id="import-config" type="file" accept=".json"></label></div></section>
+        <section class="surface"><h2>Plugin diagnostics</h2><p class="help">These are the latest recorded messages. Their timestamps do not establish whether the hardware is connected.</p><div id="diagnostics"></div></section>
+      </section>
+    </div>
+    <datalist id="remote-hosts"></datalist><datalist id="chat-keys"></datalist>
+  </main>
+</body>
+</html>

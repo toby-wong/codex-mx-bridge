@@ -196,6 +196,18 @@ so only when needed to enable explicitly disabled hooks.
 
 ## Optional animated pet buttons
 
+Prefer a UI? Run:
+
+```sh
+~/.local/share/codex-mx-bridge/bin/codex-mx settings --install-app
+```
+
+This opens the settings app and adds **Codex MX Bridge.app** to `~/Applications`
+on macOS. Use `settings` without `--install-app` on Linux. Change captions,
+animation speed, chat views, and pet assignments; import community pets from
+files or URLs, rename chats, and configure Herdr switching targets. Saves hot reload
+through the existing config files. See the [settings app guide](docs/SETTINGS-APP.md).
+
 From the updated project folder on the Mac, provide a local Codex/ChatGPT pet sheet:
 
 ```sh

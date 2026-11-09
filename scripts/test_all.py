@@ -17,7 +17,7 @@ from mxbridge.ssh import decode
 
 subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], cwd=ROOT, check=True)
 if shutil.which("node"):
-    subprocess.run(["node", "--test", "tests/pi_extension.test.mjs"], cwd=ROOT, check=True)
+    subprocess.run(["node", "--test", "tests/pi_extension.test.mjs", "tests/settings_model.test.mjs"], cwd=ROOT, check=True)
 else:
     print("SKIP: Pi extension tests require Node.js")
 with tempfile.TemporaryDirectory(prefix="mx-contract-") as state:

@@ -67,7 +67,11 @@ def read_bindings(directory):
         return {"schema_version": 1, "bindings": []}
     if len(raw) > MAX_CONFIG_BYTES:
         raise ValueError("Herdr focus configuration exceeds 64 KiB")
-    value = json.loads(raw)
+    return validate_bindings(json.loads(raw))
+
+
+def validate_bindings(value):
+    """Validate a complete document before either the CLI or settings app uses it."""
     if (not isinstance(value, dict) or value.get("schema_version") != 1 or
             not isinstance(value.get("bindings"), list) or len(value["bindings"]) > MAX_BINDINGS or
             not isinstance(value.get("remote_bindings", []), list) or

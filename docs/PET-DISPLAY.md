@@ -1,5 +1,8 @@
 # Animated pet buttons
 
+The [settings app](SETTINGS-APP.md) provides a UI for these controls, pet imports,
+and assignments: run `codex-mx settings` using your installed launcher.
+
 Version 0.3.0 adds an optional local pet theme. Text remains the default. The
 bridge chooses an animation from its observed status. Chat name, location,
 client and status labels are independently configurable; the background colour
@@ -100,7 +103,7 @@ Each rule needs `pet` and at least one selector:
 | Selector | Match |
 | --- | --- |
 | `location` | `"local"` or `"remote"` |
-| `client` | `"codex"`, `"claude"` or `"kiro"` |
+| `client` | `"codex"`, `"claude"`, `"kiro"` or `"pi"` |
 | `host` | Exact remote source alias, including the part too long to fit on a button |
 | `key` | Exact stable chat or child-agent key, using the same convention as `name_overrides` below |
 
@@ -147,7 +150,7 @@ Existing files that omit the new fields show every label by default.
 | --- | --- | --- |
 | `show_name` | `true` | Show the chat name, falling back to the existing project or agent label |
 | `show_location` | `true` | Show `local` or `remote: <host alias>` |
-| `show_client` | `true` | Show Codex, Claude or Kiro |
+| `show_client` | `true` | Show Codex, Claude, Kiro or Pi |
 | `show_status` | `true` | Show the exact observed state, such as `TOOL` or `TURN STOP` |
 | `use_chat_names` | `true` | Prefer a saved Codex chat name when available |
 | `name_overrides` | `{}` | Supply display names keyed by stable row identity |
