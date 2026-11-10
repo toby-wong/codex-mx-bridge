@@ -1,10 +1,12 @@
 import { CLIENTS, VIEWS, Draft, clone, selection, resolvePet, displayName, orderedChats,
   labels, animation, explicitChatPet, setChatPet, petNameFromSource } from "/model.mjs";
+import { PALETTES, DEFAULT_THEME, validColor, schemeFor, colorsFor, applyTheme } from "/theme.mjs";
 
 const $ = selector => document.querySelector(selector);
 const all = selector => [...document.querySelectorAll(selector)];
 const titles = {
   display: ["Display", "Choose what appears on your agent buttons."],
+  theme: ["Theme", "Choose the colours and brightness of this app."],
   pets: ["Pet library", "A little company for every kind of work."],
   rules: ["Assignments", "Give each agent, location, or chat its own pet."],
   chats: ["Chats & names", "Make each conversation easy to recognize."],
@@ -16,11 +18,12 @@ if (/^[A-Za-z0-9_-]{43}$/.test(initialToken)) {
   history.replaceState(null, "", location.pathname);
 }
 const token = sessionStorage.getItem("mx-settings-token") || "";
-let snapshot, display, bindings, tab = "display", previewPage = 0, polling = false, saving = false, stopped = false;
+let snapshot, display, bindings, theme, tab = "display", previewPage = 0, polling = false, saving = false, stopped = false;
 let generation = 0, importing = false;
 let sprites = [], nextFrame = 0;
 const images = new Map();
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const systemDark = matchMedia("(prefers-color-scheme: dark)");
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -86,7 +89,11 @@ async function api(path, body) {
   }
   return value;
 }
-function activeDraft() { return tab === "bridge" ? bindings : display; }
+function draftFor(name) { return name === "bridge" ? bindings : name === "theme" ? theme : display; }
+function activeDraft() { return draftFor(tab); }
+function invalidThemeColor() {
+  return theme?.value?.palette === "custom" && all("[data-theme-hex]").some(control => !control.validity.valid);
+}
 function changed() {
   updateSave();
   renderPreview();
@@ -94,16 +101,56 @@ function changed() {
 function updateSave() {
   const draft = activeDraft();
   if (!draft) return;
-  $("#save").textContent = tab === "bridge" ? "Save bindings" : "Save changes";
-  $("#save").disabled = saving || !draft.value || !draft.dirty || draft.conflict;
+  $("#save").textContent = tab === "bridge" ? "Save bindings" : tab === "theme" ? "Save theme" : "Save changes";
+  $("#save").disabled = saving || !draft.value || !draft.dirty || draft.conflict || (tab === "theme" && invalidThemeColor());
   $("#discard").disabled = saving || !draft.dirty;
   $("#save-state").textContent = saving ? "Saving…" : draft.conflict ? "File changed elsewhere" :
     draft.dirty ? "Unsaved changes" : draft.error ? "File needs attention" : "Up to date";
   $("#conflict").hidden = !draft.conflict;
   for (const nav of all("[data-tab]")) {
-    const dirty = nav.dataset.tab === "bridge" ? bindings?.dirty : display?.dirty;
+    const dirty = draftFor(nav.dataset.tab)?.dirty;
     nav.title = dirty ? "Unsaved changes" : "";
   }
+}
+function previewTheme() {
+  return applyTheme(theme?.value || DEFAULT_THEME, systemDark.matches);
+}
+function renderTheme() {
+  const config = theme?.value || DEFAULT_THEME;
+  const scheme = previewTheme();
+  $("#theme-mode").value = config.mode;
+  $("#theme-mode").disabled = !theme?.value;
+  $("#theme-scheme").textContent = config.mode === "system" ?
+    `Following your system: ${scheme}. Changes to system appearance apply automatically.` :
+    `${scheme === "dark" ? "Dark" : "Light"} appearance stays on until you change it.`;
+  $("#theme-warning").hidden = Boolean(theme?.value);
+  $("#theme-warning").textContent = `Cannot read the theme: ${theme?.error || "invalid settings"}. Restore the default theme and save to recover; the original file will be backed up.`;
+  $("#theme-palettes").replaceChildren();
+  for (const [id, name] of [...Object.entries(PALETTES).map(([key, palette]) => [key, palette.name]), ["custom", "Custom"]]) {
+    const choice = button(name, () => {
+      theme.value.palette = id;
+      renderTheme(); updateSave();
+    }, "palette-choice");
+    choice.dataset.palette = id;
+    choice.setAttribute("aria-pressed", String(config.palette === id));
+    choice.disabled = !theme?.value;
+    const colors = colorsFor({ ...config, palette: id }, scheme);
+    choice.style.setProperty("--swatch-background", colors.background);
+    choice.style.setProperty("--swatch-accent", colors.accent);
+    const swatch = element("span", "", "palette-swatch");
+    swatch.setAttribute("aria-hidden", "true");
+    choice.prepend(swatch);
+    $("#theme-palettes").append(choice);
+  }
+  $("#custom-theme").hidden = config.palette !== "custom" || !theme?.value;
+  $("#customize-theme").hidden = config.palette === "custom" || !theme?.value;
+  $("#custom-theme-title").textContent = `Custom ${scheme} colours`;
+  const colors = colorsFor(config, scheme);
+  for (const name of ["accent", "background"]) {
+    $(`#theme-${name}`).value = $(`#theme-${name}-hex`).value = colors[name];
+  }
+  $("#theme-color-error").hidden = true;
+  $("#theme-path").textContent = theme?.path || "";
 }
 function petOptions(reference = "", inherit = null) {
   const choices = inherit === null ? [["", "Choose an imported pet"]] : [["", inherit]];
@@ -427,7 +474,8 @@ function renderHealth() {
     row.append(details, status); sources.append(row);
   }
   $("#state-error").textContent = snapshot.state_error || (snapshot.dropped_rows ? `${snapshot.dropped_rows} old rows have been pruned by the bridge.` : "");
-  $("#config-paths").replaceChildren(element("div", `Display: ${display.path}`), element("div", `Bindings: ${bindings.path}`));
+  $("#config-paths").replaceChildren(element("div", `Display: ${display.path}`),
+    element("div", `Theme: ${theme.path}`), element("div", `Bindings: ${bindings.path}`));
   const diagnostics = $("#diagnostics");
   diagnostics.replaceChildren();
   if (!snapshot.diagnostics.length) diagnostics.append(element("p", "No diagnostic messages yet.", "help"));
@@ -442,7 +490,9 @@ function renderHealth() {
   }
 }
 function renderActive() {
+  previewTheme();
   if (tab === "display") renderDisplay();
+  if (tab === "theme") renderTheme();
   if (tab === "pets") renderLibrary();
   if (tab === "rules") renderRules();
   if (tab === "chats") renderChats();
@@ -475,18 +525,21 @@ async function refresh() {
     const first = !snapshot;
     const libraryChanged = first || JSON.stringify(next.pets) !== JSON.stringify(snapshot.pets);
     snapshot = next;
-    let displayChanged = false, bindingsChanged = false;
+    let displayChanged = false, bindingsChanged = false, themeChanged = false;
     if (first) {
-      display = new Draft(next.config); bindings = new Draft(next.bindings);
+      display = new Draft(next.config); bindings = new Draft(next.bindings); theme = new Draft(next.theme);
     } else {
       displayChanged = display.receive(next.config);
       bindingsChanged = bindings.receive(next.bindings);
+      themeChanged = theme.receive(next.theme);
     }
+    if (first || themeChanged) previewTheme();
     $("#connection").textContent = "Local app connected";
     $("#connection-dot").classList.remove("disconnected");
     $("#version").textContent = `Bridge ${next.version}`;
     $("#loading").hidden = true; $("#app").hidden = false;
-    if (first || displayChanged || (libraryChanged && tab === "pets") || (bindingsChanged && tab === "bridge")) renderActive();
+    if (first || (themeChanged && tab === "theme") || (displayChanged && tab !== "theme") ||
+        (libraryChanged && tab === "pets") || (bindingsChanged && tab === "bridge")) renderActive();
     else {
       renderPreview();
       if (tab === "chats" && !document.activeElement.closest("#chat-rows, #other-names")) renderChats();
@@ -504,6 +557,45 @@ async function refresh() {
 }
 
 for (const item of all("[data-tab]")) item.addEventListener("click", () => snapshot && showTab(item.dataset.tab));
+$("#theme-mode").addEventListener("change", event => {
+  if (!theme?.value) return;
+  theme.value.mode = event.target.value;
+  renderTheme(); updateSave();
+});
+$("#customize-theme").addEventListener("click", () => {
+  if (!theme?.value || !PALETTES[theme.value.palette]) return;
+  for (const scheme of ["light", "dark"]) {
+    Object.assign(theme.value.colors[scheme], PALETTES[theme.value.palette][scheme]);
+  }
+  theme.value.palette = "custom";
+  renderTheme(); updateSave();
+});
+for (const control of all("[data-theme-color], [data-theme-hex]")) {
+  control.addEventListener("input", () => {
+    if (!theme?.value) return;
+    const name = control.dataset.themeColor || control.dataset.themeHex;
+    if (validColor(control.value)) {
+      const scheme = schemeFor(theme.value, systemDark.matches);
+      theme.value.colors[scheme][name] = control.value.toLowerCase();
+      theme.value.palette = "custom";
+      $(`#theme-${name}`).value = $(`#theme-${name}-hex`).value = control.value.toLowerCase();
+      previewTheme();
+      $('[data-palette="custom"]')?.style.setProperty(`--swatch-${name}`, control.value.toLowerCase());
+    }
+    $("#theme-color-error").hidden = !invalidThemeColor();
+    updateSave();
+  });
+}
+$("#reset-theme").addEventListener("click", () => {
+  if (!theme) return;
+  theme.value = { ...theme.value, ...clone(DEFAULT_THEME) };
+  renderTheme(); updateSave();
+});
+systemDark.addEventListener("change", () => {
+  if (theme?.value?.mode !== "system") return;
+  previewTheme();
+  if (tab === "theme") renderTheme();
+});
 for (const [id, [label]] of Object.entries(VIEWS)) $("#chat-view").append(option(id, label));
 for (const control of all("[data-setting]")) {
   control.addEventListener(control.type === "range" ? "input" : "change", () => {
@@ -561,8 +653,8 @@ for (const remote of [false, true]) {
 }
 $("#save").addEventListener("click", async () => {
   const draft = activeDraft();
-  if (!draft?.dirty || draft.conflict) return;
-  const kind = tab === "bridge" ? "bindings" : "display";
+  if (!draft?.dirty || draft.conflict || (tab === "theme" && invalidThemeColor())) return;
+  const kind = tab === "bridge" ? "bindings" : tab === "theme" ? "theme" : "display";
   const sent = clone(draft.payload());
   generation++;
   saving = true; updateSave();
@@ -572,7 +664,9 @@ $("#save").addEventListener("click", async () => {
     const currentEdits = clone(draft.value);
     draft.reset(result.document);
     if (editedWhileSaving) draft.value = currentEdits;
-    notice(`Saved ${kind === "display" ? "display settings" : "terminal bindings"}. ${editedWhileSaving ? "Your newer edits are still unsaved." : "The plugin will reload the file automatically."}`);
+    const label = { display: "display settings", bindings: "terminal bindings", theme: "app theme" }[kind];
+    notice(`Saved ${label}. ${editedWhileSaving ? "Your newer edits are still unsaved." :
+      kind === "theme" ? "Other settings windows reload automatically." : "The plugin will reload the file automatically."}`);
   } catch (error) {
     if (error.status === 409) draft.conflict = true;
     notice(error.message, "error");
@@ -582,7 +676,7 @@ $("#discard").addEventListener("click", () => {
   activeDraft().reset(activeDraft().latest); renderActive(); notice("");
 });
 $("#reload-file").addEventListener("click", async () => {
-  const draft = activeDraft(), kind = tab === "bridge" ? "bindings" : "config";
+  const draft = activeDraft(), kind = tab === "bridge" ? "bindings" : tab === "theme" ? "theme" : "config";
   generation++;
   $("#reload-file").disabled = true;
   try {
@@ -684,7 +778,7 @@ $("#import-config").addEventListener("change", async event => {
   finally { event.target.value = ""; }
 });
 $("#quit").addEventListener("click", async () => {
-  if ((display?.dirty || bindings?.dirty) && !confirm("Quit and discard unsaved settings changes?")) return;
+  if ((display?.dirty || bindings?.dirty || theme?.dirty) && !confirm("Quit and discard unsaved settings changes?")) return;
   try {
     await api("/api/shutdown", {});
     stopped = true;
@@ -696,7 +790,7 @@ $("#quit").addEventListener("click", async () => {
   } catch (error) { notice(error.message, "error"); }
 });
 window.addEventListener("beforeunload", event => {
-  if (!stopped && (display?.dirty || bindings?.dirty)) { event.preventDefault(); event.returnValue = ""; }
+  if (!stopped && (display?.dirty || bindings?.dirty || theme?.dirty)) { event.preventDefault(); event.returnValue = ""; }
 });
 await refresh();
 setInterval(() => { if (!document.hidden) refresh(); }, 2000);

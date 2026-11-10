@@ -19,6 +19,7 @@ import zipfile
 
 from . import __version__, focus, pet_download, pets
 from .state import FINAL, empty
+from .themes import DEFAULT_THEME, validate_theme
 
 WEB = Path(__file__).with_name("settings_web")
 MAX_UPLOAD = 20 * 1024 * 1024
@@ -28,6 +29,7 @@ STATIC = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/model.mjs": ("model.mjs", "text/javascript; charset=utf-8"),
+    "/theme.mjs": ("theme.mjs", "text/javascript; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/icon.svg": ("icon.svg", "image/svg+xml"),
 }
@@ -96,6 +98,10 @@ class Settings:
             path = read = self.directory / focus.CONFIG
             default = {"schema_version": 1, "bindings": [], "remote_bindings": []}
             validate = focus.validate_bindings
+        elif kind == "theme":
+            path = read = pets.display_path(self.directory).with_name("theme.json")
+            default = DEFAULT_THEME
+            validate = validate_theme
         else:
             raise ValueError("Unknown settings document")
         try:
@@ -148,7 +154,11 @@ class Settings:
     def validate(kind, value):
         if not isinstance(value, dict):
             raise ValueError("Settings must be a JSON object")
-        checked = pets.validate_display(value) if kind == "display" else focus.validate_bindings(value)
+        validators = {"display": pets.validate_display, "bindings": focus.validate_bindings,
+                      "theme": validate_theme}
+        if kind not in validators:
+            raise ValueError("Unknown settings document")
+        checked = validators[kind](value)
         value = {**value, **checked}
         if len(encode(value)) > pets.MAX_DISPLAY_BYTES:
             raise ValueError("Settings exceed 64 KiB")
@@ -320,7 +330,8 @@ class Settings:
 
     def snapshot(self):
         result = dict(version=__version__, config=self.document("display")[0],
-                      bindings=self.document("bindings")[0], pets=self.library(), **self.activity())
+                      bindings=self.document("bindings")[0], theme=self.document("theme")[0],
+                      pets=self.library(), **self.activity())
         result["diagnostics"] = []
         for name in ("display-status.txt", "render-status.txt", "focus-status.txt", "hook-error.txt",
                      "hook-claude-error.txt", "hook-kiro-error.txt", "hook-pi-error.txt"):
@@ -427,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, dict(stopped=True))
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return
-            if route not in {"/api/display", "/api/display/validate", "/api/bindings",
+            if route not in {"/api/display", "/api/display/validate", "/api/bindings", "/api/theme",
                              "/api/pets/import", "/api/pets/import-url"}:
                 self.reply(404, dict(error="Not found"))
                 return
@@ -447,7 +458,7 @@ class Handler(BaseHTTPRequestHandler):
             elif route == "/api/display/validate":
                 result = dict(value=self.server.settings.validate("display", payload))
             else:
-                result = self.server.settings.save("display" if route.endswith("display") else "bindings", payload)
+                result = self.server.settings.save(route.removeprefix("/api/"), payload)
             self.reply(200, result)
         except Conflict as exc:
             self.reply(409, dict(error=str(exc)))

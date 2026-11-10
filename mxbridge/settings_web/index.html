@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <title>Codex MX Bridge</title>
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
@@ -15,6 +15,7 @@
     <div class="brand"><img src="/icon.svg" alt="" width="38" height="38"><div>Codex MX<span>Bridge settings</span></div></div>
     <nav aria-label="Settings sections">
       <button type="button" data-tab="display" aria-current="page"><span aria-hidden="true">▦</span>Display</button>
+      <button type="button" data-tab="theme"><span aria-hidden="true">◐</span>Theme</button>
       <button type="button" data-tab="pets"><span aria-hidden="true">♧</span>Pet library</button>
       <button type="button" data-tab="rules"><span aria-hidden="true">⇄</span>Assignments</button>
       <button type="button" data-tab="chats"><span aria-hidden="true">☷</span>Chats &amp; names</button>
@@ -67,6 +68,32 @@
             <p class="preview-note">Browser approximation. The console uses its own font fitting and rendering.</p>
             <div class="save-note"><span class="dot"></span><p>Save once. The plugin picks up display changes automatically.</p></div>
           </aside>
+        </div>
+      </section>
+      <section id="view-theme" class="view" hidden>
+        <div class="theme-settings">
+          <div id="theme-warning" class="notice warning" role="alert" hidden></div>
+          <section class="surface">
+            <h2>App appearance</h2>
+            <div class="field-row"><label for="theme-mode">Brightness<span>Follow your system or choose a fixed appearance.</span></label><select id="theme-mode"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+            <p id="theme-scheme" class="help"></p>
+          </section>
+          <section class="surface">
+            <div class="section-heading"><h2>Colour palette</h2><button id="customize-theme" class="text-button" type="button">Customise these colours</button></div>
+            <div id="theme-palettes" class="theme-palettes" role="group" aria-label="Colour palettes"></div>
+            <p class="help">Changes preview immediately throughout the app. Save the theme to keep it.</p>
+          </section>
+          <section id="custom-theme" class="surface" hidden>
+            <h2 id="custom-theme-title">Custom colours</h2>
+            <p class="help">Choose an accent and background. Text and panels adjust to stay readable. Light and dark colours are saved separately.</p>
+            <div class="theme-colors">
+              <div class="theme-color"><label for="theme-accent">Accent colour</label><div><input id="theme-accent" type="color" data-theme-color="accent"><input id="theme-accent-hex" type="text" data-theme-hex="accent" pattern="#[0-9a-fA-F]{6}" maxlength="7" required spellcheck="false" aria-label="Accent hex colour"></div></div>
+              <div class="theme-color"><label for="theme-background">Background colour</label><div><input id="theme-background" type="color" data-theme-color="background"><input id="theme-background-hex" type="text" data-theme-hex="background" pattern="#[0-9a-fA-F]{6}" maxlength="7" required spellcheck="false" aria-label="Background hex colour"></div></div>
+            </div>
+            <p id="theme-color-error" class="help theme-error" role="status" hidden>Use a six-digit hex colour, such as #315f49.</p>
+          </section>
+          <div class="theme-footer"><button id="reset-theme" class="secondary" type="button">Restore default theme</button><p class="help">Theme changes also load from the config file while this app is open.</p></div>
+          <p id="theme-path" class="file-paths"></p>
         </div>
       </section>
       <section id="view-pets" class="view" hidden>

@@ -6,7 +6,7 @@ implementation with portable tests and an SDK-validated plugin package; physical
 hardware and macOS integration still need the acceptance checks below.
 
 Repository: [toby-wong/codex-mx-bridge](https://github.com/toby-wong/codex-mx-bridge)
-(public). Version 0.4.0.
+(public). Version 0.4.1.
 
 ![Animated Logitech MX Creative Console with monthly-salary-cat showing ready, working, approval, turn stop, and exit error states](docs/assets/console-preview.gif)
 
@@ -205,7 +205,7 @@ status works without focus permission. See
 `~/.local/state/codex-mx-bridge/focus-status.txt`.
 
 Manual alternative: use `python3.15 bridge.py install-hooks --apply`, review
-`/hooks`, and install `CodexMx_0_4_0.lplug4` from the release by double-clicking.
+`/hooks`, and install `CodexMx_0_4_1.lplug4` from the release by double-clicking.
 Do not install that package alongside the source installer's development link.
 The standalone hook command does not edit `config.toml`; the full installer does
 so only when needed to enable explicitly disabled hooks.
@@ -221,8 +221,10 @@ Prefer a UI? Run:
 This opens the settings app and adds **Codex MX Bridge.app** to `~/Applications`
 on macOS. Use `settings` without `--install-app` on Linux. Change captions,
 animation speed, chat views, and pet assignments; import community pets from
-files or URLs, rename chats, and configure Herdr switching targets. Saves hot reload
-through the existing config files. See the [settings app guide](docs/SETTINGS-APP.md).
+files or URLs, rename chats, and configure Herdr switching targets. The **Theme**
+tab offers light, dark, and system appearance, colour palettes, and custom
+accent/background colours. Themes save to `~/.config/codex-mx-bridge/theme.json`
+and hot reload across settings windows. See the [settings app guide](docs/SETTINGS-APP.md).
 
 From the updated project folder on the Mac, provide a local Codex/ChatGPT pet sheet:
 

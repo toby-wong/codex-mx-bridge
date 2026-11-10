@@ -3,8 +3,12 @@
 Run the installed launcher to open the bridge settings in your browser:
 
 ```sh
-~/.local/share/codex-mx-bridge/bin/codex-mx settings
+codex-mx settings
 ```
+
+For a source installation, use `~/.local/share/codex-mx-bridge/bin/codex-mx`
+instead. After a Homebrew upgrade, `codex-mx settings --install-app` updates
+the Finder app without reactivating the agent hooks or plugin.
 
 The app uses the existing Python runtime. There is no frontend build, npm
 dependency, or account to configure. Display settings continue to hot reload;
@@ -40,6 +44,9 @@ just like `codex-mx settings`.
 - **Display:** pet or text mode, default pet, animation, requested 1–8 fps,
   each caption switch, and all four chat views. The nine-button browser preview
   shows the draft with either your current chats or clearly labeled examples.
+- **Theme:** light, dark, or system appearance; Sage, Slate, Sand, or a custom
+  palette. Accent and background colours have separate light/dark values.
+  Changes preview throughout the app; **Save theme** keeps them.
 - **Pet library:** preview imported revisions, select a default, or import
   a PNG/WebP atlas or `.codex-pet.zip` from a file or remote URL. Codex Pets
   page links resolve to the downloadable package automatically. An optional
@@ -75,14 +82,16 @@ Pillow.
 
 ## Existing files and edits
 
-The app uses `~/.config/codex-mx-bridge/display.json` and the existing
+The app uses `~/.config/codex-mx-bridge/display.json`,
+`~/.config/codex-mx-bridge/theme.json`, and the existing
 `~/.local/state/codex-mx-bridge/herdr-focus.json`. A custom `--state-dir`
-keeps both documents inside that directory. Existing legacy display settings
+keeps all three documents inside that directory. Existing legacy display settings
 are read and migrated on save using the same path rules as the CLI.
 
 Saves use the bridge's validators, a private backup beside the changed file,
 and an atomic replacement. Unknown configuration fields are retained.
-Backups are named `display.json.settings-backup-<timestamp>` or
+Backups are named `display.json.settings-backup-<timestamp>`,
+`theme.json.settings-backup-<timestamp>`, or
 `herdr-focus.json.settings-backup-<timestamp>`.
 
 The app polls for file changes every two seconds while visible. A clean editor
@@ -91,6 +100,38 @@ app keeps the draft and blocks saving until you reload the file. Two app tabs
 cannot silently overwrite each other's settings. As with any file editor,
 an external program that writes in the instant between the final revision
 check and atomic replacement cannot participate in this concurrency check.
+
+## App themes
+
+Open **Theme**, choose a brightness and palette, then click **Save theme**.
+**System** follows operating-system appearance changes without rewriting your
+preference. **Customise these colours** starts a custom palette from the current
+preset. Use the colour pickers or six-digit hex fields; text, panels, and notices
+adjust for contrast. Switch between Light and Dark to edit each variant.
+**Discard** restores the saved preview, and **Restore default theme** previews
+the original light Sage palette until you save it.
+
+You can also edit `~/.config/codex-mx-bridge/theme.json`:
+
+```json
+{
+  "schema_version": 1,
+  "mode": "system",
+  "palette": "custom",
+  "colors": {
+    "light": { "background": "#f4effa", "accent": "#5c37a6" },
+    "dark": { "background": "#181e28", "accent": "#bfa9f3" }
+  }
+}
+```
+
+`palette` accepts `sage`, `slate`, `sand`, or `custom`; only `custom` uses the
+saved `colors`. File edits reload within two seconds in visible windows and on
+returning to a hidden window. Unsaved themes retain their preview and show a
+conflict instead of being overwritten. Invalid theme files use the default
+appearance until repaired or restored; saving a replacement backs up the file.
+These preferences apply to the settings app. Console colours and pet assignments
+continue to use the display configuration.
 
 Plugin diagnostics show the last recorded config/render/focus messages, not a
 hardware connection heartbeat. The browser preview approximates the console;
@@ -139,7 +180,7 @@ interface.
 The normal `scripts/test_all.py` runner includes the settings API and model
 tests. They cover persistence, backups, conflict detection, local/remote rule
 selection, ZIP/download limits, URL validation, redirects, authentication, path
-containment, and launcher reuse.
+containment, launcher reuse, theme validation, and colour contrast.
 
 The optional browser acceptance suite needs Playwright with Chromium and the
 Python pets extra:
@@ -153,6 +194,7 @@ node --test tests/settings_browser.test.mjs
 Omit `MX_PLAYWRIGHT_MODULE` when `playwright` is already resolvable by Node.
 The suite uses generated geometry fixtures and an isolated state directory.
 It tests saving, paging, captions, FPS, rule reordering, chat overrides,
-external edits, file/URL import, config import/export, Herdr bindings, and narrow
-layouts. Browser URL success uses a fixture transfer; Python tests cover the
+external edits, file/URL import, config import/export, Herdr bindings, themes,
+system appearance changes, theme conflicts across windows, and narrow layouts.
+Browser URL success uses a fixture transfer; Python tests cover the
 downloader separately. Screenshots go to ignored `test-results/settings-browser/`.

@@ -287,6 +287,18 @@ class HTTPTests(unittest.TestCase):
         saved = json.loads((Path(self.temp.name) / "display.json").read_text())
         self.assertEqual(saved["fps"], 8)
 
+    def test_theme_api_requires_authentication_and_keeps_display_separate(self):
+        snapshot = json.loads(self.request()[2])
+        theme = snapshot["theme"]
+        payload = dict(revision=theme["revision"], value=dict(theme["value"], mode="dark"))
+        self.assertEqual(self.request("/api/theme", method="POST", value=payload, authorized=False)[0], 401)
+        self.assertFalse((Path(self.temp.name) / "theme.json").exists())
+        self.assertEqual(self.request("/api/theme", method="POST", value=payload)[0], 200)
+        self.assertEqual(json.loads(self.request()[2])["theme"]["value"]["mode"], "dark")
+        self.assertEqual(self.request("/api/theme", method="POST", value=payload)[0], 409)
+        self.assertFalse((Path(self.temp.name) / "display.json").exists())
+        self.assertEqual(self.request("/theme.mjs", authorized=False)[0], 200)
+
     def test_bad_content_oversize_body_and_unlisted_paths_are_rejected(self):
         self.assertEqual(self.request("/api/display", method="POST", value={},
             headers={"Content-Type": "text/plain"})[0], 415)

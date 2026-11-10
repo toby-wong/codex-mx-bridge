@@ -20,6 +20,7 @@ test("settings app browser acceptance", { timeout: 120000 }, async t => {
   const command = [join(root, "bridge.py"), "--state-dir", state, "settings"];
   let browser;
   const saved = async () => JSON.parse(await readFile(join(state, "display.json"), "utf8"));
+  const savedTheme = async () => JSON.parse(await readFile(join(state, "theme.json"), "utf8"));
   async function externalChange(changes) {
     const path = join(state, "display.json");
     await writeFile(path + ".test-tmp", JSON.stringify({ ...await saved(), ...changes }));
@@ -29,13 +30,15 @@ test("settings app browser acceptance", { timeout: 120000 }, async t => {
     const fixture = JSON.parse((await run(python, [join(root, "tests/settings_fixture.py"), state])).stdout);
     const { stdout } = await run(python, [...command, "--no-open"]);
     browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({ viewport: { width: 1320, height: 1100 }, reducedMotion: "reduce" });
+    const context = await browser.newContext({ viewport: { width: 1320, height: 1100 }, reducedMotion: "reduce" });
+    const page = await context.newPage();
     page.setDefaultTimeout(10000);
     const errors = [], csp = [];
     page.on("pageerror", e => errors.push(e.message));
     page.on("console", message => { if (message.text().includes("Content Security Policy")) csp.push(message.text()); });
     await page.goto(stdout.trim(), { waitUntil: "domcontentloaded" });
     await page.locator("#app").waitFor({ state: "visible" });
+    await mkdir(screenshots, { recursive: true });
     const tab = name => page.locator(`[data-tab="${name}"]`).click();
     const save = async () => {
       await page.locator("#save").click();
@@ -63,6 +66,102 @@ test("settings app browser acceptance", { timeout: 120000 }, async t => {
       assert.equal(value.pet_rules[0].pet, fixture.remote);
       assert.deepEqual(value.future_setting, { preserve: true });
       assert.equal(await page.locator("#preview-grid .status").count(), 0);
+    });
+    await t.test("previews and saves dark appearance without changing display settings", async () => {
+      const before = await readFile(join(state, "display.json"), "utf8");
+      await tab("theme");
+      await page.screenshot({ path: join(screenshots, "theme-light.png"), fullPage: true });
+      await page.locator("#theme-mode").selectOption("dark");
+      await page.locator('[data-palette="slate"]').click();
+      assert.equal(await page.locator("html").getAttribute("data-scheme"), "dark");
+      assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--page").trim()), "#181e28");
+      await save();
+      assert.equal((await savedTheme()).mode, "dark");
+      assert.equal((await savedTheme()).palette, "slate");
+      assert.equal(await readFile(join(state, "display.json"), "utf8"), before);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.locator("#app").waitFor({ state: "visible" });
+      assert.equal(await page.locator("html").getAttribute("data-scheme"), "dark");
+      await tab("theme");
+      await page.screenshot({ path: join(screenshots, "theme-dark.png"), fullPage: true });
+    });
+    await t.test("custom colours preview immediately, validate hex input, and persist", async () => {
+      await page.locator("#theme-mode").selectOption("light");
+      await page.locator("#customize-theme").click();
+      await page.locator("#theme-accent-hex").fill("#5c37a6");
+      await page.locator("#theme-background-hex").fill("#f4effa");
+      assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim()), "#5c37a6");
+      assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), "rgb(244, 239, 250)");
+      assert.deepEqual(await page.locator('[data-palette="custom"]').evaluate(choice =>
+        ["accent", "background"].map(name => choice.style.getPropertyValue(`--swatch-${name}`))),
+      ["#5c37a6", "#f4effa"]);
+      await page.locator("#theme-accent-hex").fill("#bad");
+      assert.equal(await page.locator("#save").isDisabled(), true);
+      assert.equal(await page.locator("#theme-color-error").isVisible(), true);
+      await page.locator("#theme-accent-hex").fill("#5c37a6");
+      await save();
+      const stored = await savedTheme();
+      assert.equal(stored.palette, "custom");
+      assert.deepEqual(stored.colors.light, { background: "#f4effa", accent: "#5c37a6" });
+      assert.equal(stored.colors.dark.background, "#181e28");
+      await page.screenshot({ path: join(screenshots, "theme-custom.png"), fullPage: true });
+    });
+    await t.test("system appearance follows live operating-system changes", async () => {
+      await page.locator("#theme-mode").selectOption("system");
+      await save();
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.waitForFunction(() => document.documentElement.dataset.scheme === "dark");
+      assert.equal(await page.locator("#custom-theme-title").textContent(), "Custom dark colours");
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.waitForFunction(() => document.documentElement.dataset.scheme === "light");
+      assert.equal((await savedTheme()).mode, "system");
+      assert.equal(await page.locator("#save").isDisabled(), true);
+    });
+    await t.test("theme file edits hot reload across windows and preserve a dirty preview", async () => {
+      const before = await readFile(join(state, "display.json"), "utf8");
+      const other = await page.context().newPage();
+      const writeTheme = async change => {
+        const file = join(state, "theme.json");
+        await writeFile(file + ".test-tmp", JSON.stringify({ ...await savedTheme(), ...change }));
+        await rename(file + ".test-tmp", file);
+      };
+      try {
+        await other.goto(stdout.trim(), { waitUntil: "domcontentloaded" });
+        await other.locator("#app").waitFor({ state: "visible" });
+        await writeTheme({ mode: "dark", palette: "sand" });
+        await page.bringToFront();
+        await page.waitForFunction(() => document.documentElement.dataset.scheme === "dark");
+        await other.bringToFront();
+        await other.waitForFunction(() => document.documentElement.dataset.scheme === "dark");
+        await page.bringToFront();
+        await page.locator("#customize-theme").click();
+        await page.locator("#theme-accent-hex").fill("#c0ffff");
+        await writeTheme({ mode: "light", palette: "sage" });
+        await page.locator("#conflict").waitFor({ state: "visible" });
+        await other.bringToFront();
+        await other.waitForFunction(() => document.documentElement.dataset.scheme === "light");
+        await page.bringToFront();
+        assert.equal(await page.locator("#theme-accent-hex").inputValue(), "#c0ffff");
+        assert.equal(await page.locator("html").getAttribute("data-scheme"), "dark");
+        assert.equal(await page.locator("#save").isDisabled(), true);
+        await page.locator("#reload-file").click();
+        await page.locator("#conflict").waitFor({ state: "hidden" });
+        assert.equal(await page.locator("html").getAttribute("data-scheme"), "light");
+        assert.equal(await readFile(join(state, "display.json"), "utf8"), before);
+      } finally { await other.close(); }
+    });
+    await t.test("recovers an invalid theme file and previews defaults before saving", async () => {
+      await writeFile(join(state, "theme.json"), '{"schema_version":1,"mode":"broken"}');
+      await page.locator("#theme-warning").waitFor({ state: "visible" });
+      assert.equal(await page.locator("#theme-mode").isDisabled(), true);
+      await page.locator("#reset-theme").click();
+      assert.equal(await page.locator("#theme-mode").inputValue(), "light");
+      assert.equal((await savedTheme()).mode, "broken");
+      await save();
+      assert.equal((await savedTheme()).mode, "light");
+      await page.locator("#theme-mode").selectOption("dark");
+      await page.locator("#discard").click();
+      assert.equal(await page.locator("html").getAttribute("data-scheme"), "light");
     });
     await t.test("adds and reorders a local Pi pet rule", async () => {
       await tab("rules");
@@ -204,10 +303,16 @@ test("settings app browser acceptance", { timeout: 120000 }, async t => {
       await tab("pets");
       await page.screenshot({ path: join(screenshots, "pets.png"), fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
-      for (const section of ["display", "pets", "rules", "chats", "bridge"]) {
+      for (const section of ["display", "theme", "pets", "rules", "chats", "bridge"]) {
         await tab(section);
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${section} overflows the viewport`);
       }
+      await tab("theme");
+      await page.locator("#theme-mode").selectOption("dark");
+      await page.locator("#customize-theme").click();
+      await page.screenshot({ path: join(screenshots, "theme-mobile.png"), fullPage: true });
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "custom theme overflows the viewport");
+      await page.locator("#discard").click();
       await tab("display");
       await page.keyboard.press("Tab");
       assert.notEqual(await page.evaluate(() => document.activeElement.tagName), "BODY");

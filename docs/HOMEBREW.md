@@ -58,6 +58,10 @@ Open **Codex MX Bridge.app** from Finder, or run:
 codex-mx settings
 ```
 
+The **Theme** tab controls app colours and light/dark/system appearance.
+Preferences in `~/.config/codex-mx-bridge/theme.json` hot reload independently
+of the console display settings.
+
 Setup copies the active source and plugin into
 `~/.local/share/codex-mx-bridge/releases/`, then registers hooks and the plugin.
 Agent hooks point to this immutable copy, so `brew cleanup` cannot remove
@@ -104,8 +108,8 @@ Keep these versions equal:
 Commit and push the changes, then push their version tag:
 
 ```sh
-git tag v0.4.0
-git push origin v0.4.0
+git tag v0.4.1
+git push origin v0.4.1
 ```
 
 **Homebrew release** runs tests, builds against the official
@@ -131,7 +135,7 @@ Older releases do not downgrade the current Homebrew formula.
 To verify a candidate locally:
 
 ```sh
-python3.15 scripts/release.py build --tag v0.4.0
+python3.15 scripts/release.py build --tag v0.4.1
 python3.15 scripts/brew_smoke.py --artifacts dist
 ```
 
