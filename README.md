@@ -82,7 +82,7 @@ Install the complete bridge through Homebrew:
 
 ```sh
 brew tap toby-wong/codex-mx-bridge https://github.com/toby-wong/codex-mx-bridge
-brew install codex-mx-bridge
+brew install toby-wong/codex-mx-bridge/codex-mx-bridge
 codex-mx setup --install-options
 ```
 

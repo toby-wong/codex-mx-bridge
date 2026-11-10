@@ -4,9 +4,13 @@ The repository is also a Homebrew tap. Install on macOS or Linux:
 
 ```sh
 brew tap toby-wong/codex-mx-bridge https://github.com/toby-wong/codex-mx-bridge
-brew install codex-mx-bridge
+brew install toby-wong/codex-mx-bridge/codex-mx-bridge
 codex-mx setup
 ```
+
+The fully qualified install command grants Homebrew trust to this formula.
+If an older source installation takes precedence in your shell, activate the
+Homebrew version with `$(brew --prefix)/bin/codex-mx setup`.
 
 The formula includes the bridge, settings UI, Pi extension, and prebuilt
 Logitech plugin. Homebrew supplies Python 3.15 and Pillow, including WebP

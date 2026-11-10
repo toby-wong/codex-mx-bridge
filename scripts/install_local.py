@@ -256,14 +256,16 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
         previews.append(install(path, definition(root/"bridge.py", instance=item["instance"],
                                                  **options), **options))
     if args.dry_run:
-        print("Plan: stage source; create Python 3.15 venv; self-check each client; back up/merge selected hooks; write launcher.")
+        runtime = "use Homebrew Python 3.15" if args.managed_python else "create Python 3.15 venv"
+        print(f"Plan: stage source; {runtime}; self-check each client; back up/merge selected hooks; write launcher.")
         if any(t["client"] == "codex" for t in selected):
             print("Plan: enable explicitly disabled Codex hooks if needed.")
         if not hooks_only:
             print("Plan: link the verified prebuilt plugin." if prebuilt else
                   "Plan: locate Options+ SDK; obtain .NET 8 if needed; build plugin; back up/write development link.")
         if with_pets:
-            print("Plan: install optional Pillow 13; import/enable the supplied local sheet if specified.")
+            pillow = "verify Homebrew Pillow" if args.managed_python else "install optional Pillow 13"
+            print(f"Plan: {pillow}; import/enable the supplied local sheet if specified.")
         print("No changes made. Hook trust and device assignments remain manual.")
         return 0
     executables = {}

@@ -41,7 +41,7 @@ def publish(directory):
                 f"Install the complete bridge, pet importer, settings app, and prebuilt Logitech plugin:\n\n"
                 "```sh\n"
                 f"brew tap toby-wong/codex-mx-bridge https://github.com/{REPOSITORY}\n"
-                "brew install codex-mx-bridge\n"
+                f"brew install {REPOSITORY}/codex-mx-bridge\n"
                 "codex-mx setup\n"
                 "```\n\n"
                 "For another client, use `--client claude`, `--client pi`, or "
