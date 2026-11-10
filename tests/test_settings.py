@@ -310,6 +310,14 @@ class HTTPTests(unittest.TestCase):
 
 
 class LauncherTests(unittest.TestCase):
+    def test_loopback_server_starts_without_hostname_resolution(self):
+        with tempfile.TemporaryDirectory() as folder, \
+                patch("socket.getfqdn", side_effect=OSError("DNS unavailable")):
+            with SettingsServer(folder) as server:
+                self.assertEqual(server.server_name, "127.0.0.1")
+                self.assertGreater(server.server_port, 0)
+                self.assertEqual(server.origin, f"http://127.0.0.1:{server.server_port}")
+
     def test_app_only_install_stages_code_without_rewriting_the_existing_bridge(self):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder) / "home"
@@ -367,9 +375,13 @@ class LauncherTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             command = [sys.executable, str(ROOT / "bridge.py"), "--state-dir", folder, "settings"]
             try:
-                first = subprocess.run([*command, "--no-open"], check=True, text=True, capture_output=True, timeout=15)
+                first = subprocess.run([*command, "--no-open"], text=True, capture_output=True, timeout=15)
+                log = Path(folder) / "settings-server.log"
+                self.assertEqual(first.returncode, 0,
+                    first.stderr + (log.read_text() if log.exists() else ""))
                 record = read_server(folder)
-                second = subprocess.run([*command, "--no-open"], check=True, text=True, capture_output=True, timeout=15)
+                second = subprocess.run([*command, "--no-open"], text=True, capture_output=True, timeout=15)
+                self.assertEqual(second.returncode, 0, second.stderr)
                 self.assertEqual(first.stdout, second.stdout)
                 self.assertEqual(read_server(folder)["pid"], record["pid"])
                 self.assertEqual((Path(folder) / "settings-server.json").stat().st_mode & 0o777, 0o600)

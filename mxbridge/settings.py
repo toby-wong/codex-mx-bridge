@@ -3,6 +3,7 @@ import base64
 import binascii
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 import io
 import json
 import os
@@ -348,6 +349,11 @@ class SettingsServer(ThreadingHTTPServer):
         super().__init__(("127.0.0.1", port), Handler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
         self.url = f"{self.origin}/#{self.token}"
+
+    def server_bind(self):
+        # This loopback app must not wait for reverse DNS during startup.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 class Handler(BaseHTTPRequestHandler):
