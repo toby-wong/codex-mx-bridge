@@ -108,8 +108,8 @@ Keep these versions equal:
 Commit and push the changes, then push their version tag:
 
 ```sh
-git tag v0.4.1
-git push origin v0.4.1
+git tag v0.4.2
+git push origin v0.4.2
 ```
 
 **Homebrew release** runs tests, builds against the official
@@ -135,7 +135,7 @@ Older releases do not downgrade the current Homebrew formula.
 To verify a candidate locally:
 
 ```sh
-python3.15 scripts/release.py build --tag v0.4.1
+python3.15 scripts/release.py build --tag v0.4.2
 python3.15 scripts/brew_smoke.py --artifacts dist
 ```
 

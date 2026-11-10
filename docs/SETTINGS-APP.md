@@ -111,6 +111,10 @@ adjust for contrast. Switch between Light and Dark to edit each variant.
 **Discard** restores the saved preview, and **Restore default theme** previews
 the original light Sage palette until you save it.
 
+The **Button preview** follows the app theme, including its casing, keys,
+captions, status colours, and paging buttons. This also applies to unsaved
+theme previews and colours reloaded from the config file.
+
 You can also edit `~/.config/codex-mx-bridge/theme.json`:
 
 ```json

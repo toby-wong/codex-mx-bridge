@@ -6,7 +6,7 @@ implementation with portable tests and an SDK-validated plugin package; physical
 hardware and macOS integration still need the acceptance checks below.
 
 Repository: [toby-wong/codex-mx-bridge](https://github.com/toby-wong/codex-mx-bridge)
-(public). Version 0.4.1.
+(public). Version 0.4.2.
 
 ![Animated Logitech MX Creative Console with monthly-salary-cat showing ready, working, approval, turn stop, and exit error states](docs/assets/console-preview.gif)
 
@@ -205,7 +205,7 @@ status works without focus permission. See
 `~/.local/state/codex-mx-bridge/focus-status.txt`.
 
 Manual alternative: use `python3.15 bridge.py install-hooks --apply`, review
-`/hooks`, and install `CodexMx_0_4_1.lplug4` from the release by double-clicking.
+`/hooks`, and install `CodexMx_0_4_2.lplug4` from the release by double-clicking.
 Do not install that package alongside the source installer's development link.
 The standalone hook command does not edit `config.toml`; the full installer does
 so only when needed to enable explicitly disabled hooks.
