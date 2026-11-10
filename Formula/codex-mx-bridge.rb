@@ -4,9 +4,9 @@ require "shellwords"
 class CodexMxBridge < Formula
   desc "Agent status and animated pets for Logitech MX Creative Console"
   homepage "https://github.com/toby-wong/codex-mx-bridge"
-  url "https://github.com/toby-wong/codex-mx-bridge/releases/download/v0.4.1/codex-mx-bridge-0.4.1.tar.gz"
-  version "0.4.1"
-  sha256 "0491ed3fe108d72d7c96c2eb0a8e69a11e1932a51104d9905d5dbe5958cbde88"
+  url "https://github.com/toby-wong/codex-mx-bridge/releases/download/v0.4.2/codex-mx-bridge-0.4.2.tar.gz"
+  version "0.4.2"
+  sha256 "febe46995170c6503cadae850a151cbfa1de09d67e430673f019e63182052bb5"
   license "MIT"
 
   depends_on "pillow"
