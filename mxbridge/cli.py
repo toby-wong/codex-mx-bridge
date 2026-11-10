@@ -14,6 +14,7 @@ from .adapters import CLIENTS, LABELS
 from .adapters.common import identity
 from .ssh import collect_once, command
 from .state import Store, apply_event, export_snapshot, run_start, run_update
+from . import __version__
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -116,9 +117,15 @@ def launch(store, argv, label, client="codex", instance=""):
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "setup":
+        from .setup import main as setup_main
+        return setup_main(argv[1:])
     parser = argparse.ArgumentParser(description="Agent command hooks to Logi Actions SDK bridge")
+    parser.add_argument("--version", action="version", version=f"Codex MX Bridge {__version__}")
     parser.add_argument("--state-dir", type=Path, help="Override state directory")
     sub = parser.add_subparsers(dest="action", required=True)
+    sub.add_parser("setup", help="Activate a Homebrew installation for this user")
     p = sub.add_parser("hook", help="Observational command hook, JSON on stdin")
     p.add_argument("--client", choices=CLIENTS, default="codex")
     p.add_argument("--instance", default="")

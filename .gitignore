@@ -8,3 +8,4 @@ __pycache__/
 local-*.json
 test-results/
 .venv*/
+dist/

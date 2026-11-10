@@ -24,8 +24,9 @@ from mxbridge.install import (combine_targets, definition, install, require_cli,
                               targets_from_manifest, validate_kiro_profile)
 from mxbridge.state import atomic_json
 
-ITEMS = ("bridge.py", "mxbridge", "integrations", "plugin", "scripts", "tests", "docs", "README.md",
-         "global.json", "pyproject.toml", ".python-version", "install.sh", "update.sh")
+ITEMS = ("bridge.py", "mxbridge", "integrations", "plugin", "prebuilt", "scripts", "packaging", "tests", "docs", "README.md",
+         "LICENSE", "distribution.json", "homebrew.json", "global.json", "pyproject.toml",
+         ".python-version", "install.sh", "update.sh")
 EXCLUDED = {"bin", "obj", ".git", ".tools", "__pycache__"}
 
 
@@ -40,8 +41,9 @@ def source_files(root):
         if path.is_file():
             paths.append(path)
         elif path.is_dir():
+            excluded = EXCLUDED - {"bin"} if name == "prebuilt" else EXCLUDED
             paths.extend(p for p in path.rglob("*") if p.is_file() and
-                         not set(p.relative_to(path).parts) & EXCLUDED and p.suffix != ".pyc")
+                         not set(p.relative_to(path).parts) & excluded and p.suffix != ".pyc")
     return sorted(paths, key=lambda p: p.relative_to(root).as_posix())
 
 
@@ -121,7 +123,7 @@ def enable_hooks(path):
             os.unlink(tmp)
 
 
-def parse_args(argv=None):
+def make_parser():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--prefix", type=Path, default=Path(os.environ.get("XDG_DATA_HOME", Path.home()/".local/share"))/"codex-mx-bridge")
     p.add_argument("--codex-home", type=Path, default=Path(os.environ.get("CODEX_HOME", Path.home()/".codex")))
@@ -144,7 +146,13 @@ def parse_args(argv=None):
     p.add_argument("--pet-layout", type=Path, help="Explicit layout JSON for a different sprite-sheet version")
     p.add_argument("--motion", choices=("on", "off"))
     p.add_argument("--sdk", type=Path, default=Path("/Applications/Utilities/LogiPluginService.app/Contents/MonoBundle/PluginApi.dll"))
-    return p.parse_args(argv)
+    p.add_argument("--prebuilt-plugin", type=Path, help=argparse.SUPPRESS)
+    p.add_argument("--managed-python", type=Path, help=argparse.SUPPRESS)
+    return p
+
+
+def parse_args(argv=None):
+    return make_parser().parse_args(argv)
 
 
 def get_dotnet(prefix, no_downloads, runner=subprocess.run):
@@ -224,6 +232,13 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
         previous = json.loads(raw)
     remembered = targets_from_manifest(previous) if previous is not None else []
     registered = combine_targets(remembered, selected)
+    prebuilt = None
+    if args.prebuilt_plugin and not hooks_only:
+        from mxbridge.distribution import validate_plugin
+        prebuilt = args.prebuilt_plugin.expanduser().resolve()
+        if prebuilt != root.resolve() / "prebuilt/CodexMx":
+            raise InstallError("The prebuilt plugin must belong to this distribution")
+        validate_plugin(root)
     for item in selected:
         print(f"{LABELS[item['client']]} config: {item['path']}")
     print("Mode: hooks/export only" if hooks_only else "Mode: Mac hooks and Logitech plugin")
@@ -245,7 +260,8 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
         if any(t["client"] == "codex" for t in selected):
             print("Plan: enable explicitly disabled Codex hooks if needed.")
         if not hooks_only:
-            print("Plan: locate Options+ SDK; obtain .NET 8 if needed; build plugin; back up/write development link.")
+            print("Plan: link the verified prebuilt plugin." if prebuilt else
+                  "Plan: locate Options+ SDK; obtain .NET 8 if needed; build plugin; back up/write development link.")
         if with_pets:
             print("Plan: install optional Pillow 13; import/enable the supplied local sheet if specified.")
         print("No changes made. Hook trust and device assignments remain manual.")
@@ -270,14 +286,19 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
         os.chmod(prefix, 0o700)
     release = stage_source(root, prefix)
     venv = prefix/"venv-3.15"
-    python = venv/("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    if not python.is_file():
+    python = args.managed_python.expanduser().absolute() if args.managed_python else \
+        venv/("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    if not args.managed_python and not python.is_file():
         runner([sys.executable, "-m", "venv", "--without-pip", str(venv)], check=True)
     runner([str(python), "-c", "import sys; assert sys.version_info[:2] == (3,15) and sys.version_info.releaselevel == 'final'"], check=True)
     pet_id = None
     if with_pets:
-        check = runner([str(python), "-c", "import PIL; assert PIL.__version__ == '13.0.0'"], capture_output=True, check=False)
+        pillow_check = ("from PIL import Image, features; assert features.check('webp')" if args.managed_python else
+                        "import PIL; assert PIL.__version__ == '13.0.0'")
+        check = runner([str(python), "-c", pillow_check], capture_output=True, check=False)
         if check.returncode:
+            if args.managed_python:
+                raise InstallError("Homebrew Pillow with WebP support is missing; run brew reinstall pillow")
             if args.no_downloads:
                 raise InstallError("Pillow 13.0.0 is missing from the installed venv; --no-downloads prevents installing it")
             runner([str(python), "-m", "ensurepip", "--upgrade"], check=True)
@@ -312,13 +333,16 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
                 raise InstallError(f"Installed {LABELS[client]} hook self-check failed; live hooks were not changed")
     plugin_link = None
     if not hooks_only:
-        dotnet = get_dotnet(prefix, args.no_downloads, runner)
-        env = dict(os.environ, PATH=str(Path(dotnet).parent)+os.pathsep+os.environ.get("PATH", ""))
-        if Path(dotnet).parent == prefix/"tools/dotnet":
-            env["DOTNET_ROOT"] = str(Path(dotnet).parent)
-        runner([dotnet, "build", str(release/"plugin/CodexMxPlugin.csproj"), "-c", "Release",
-                "-p:PluginApiPath="+str(args.sdk.expanduser().resolve())], cwd=release, env=env, check=True)
-        package = release/"plugin/bin/Release/package"
+        if prebuilt:
+            package = release / "prebuilt/CodexMx"
+        else:
+            dotnet = get_dotnet(prefix, args.no_downloads, runner)
+            env = dict(os.environ, PATH=str(Path(dotnet).parent)+os.pathsep+os.environ.get("PATH", ""))
+            if Path(dotnet).parent == prefix/"tools/dotnet":
+                env["DOTNET_ROOT"] = str(Path(dotnet).parent)
+            runner([dotnet, "build", str(release/"plugin/CodexMxPlugin.csproj"), "-c", "Release",
+                    "-p:PluginApiPath="+str(args.sdk.expanduser().resolve())], cwd=release, env=env, check=True)
+            package = release/"plugin/bin/Release/package"
         if not (package/"bin/CodexMxPlugin.dll").is_file():
             raise InstallError("Plugin build output missing; live hooks were not changed")
         plugins = Path.home()/"Library/Application Support/Logi/LogiPluginService/Plugins"
@@ -362,7 +386,9 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, which=shut
         hooks_only=hooks_only and not keep_plugin,
         plugin_link=str(plugin_link) if plugin_link else old.get("plugin_link") if keep_plugin else None,
         plugin_release=str(release) if plugin_link else old.get("plugin_release") if keep_plugin else None,
-        sdk=str(args.sdk.expanduser().resolve()) if not hooks_only else old.get("sdk") if keep_plugin else None))
+        sdk=str(args.sdk.expanduser().resolve()) if not hooks_only and not prebuilt else old.get("sdk") if keep_plugin else None,
+        distribution="homebrew" if args.managed_python else "source",
+        prebuilt_plugin=bool(prebuilt) or bool(keep_plugin and old.get("prebuilt_plugin"))))
     print("Installed and self-check passed.")
     print(f"Bridge command: {shlex.quote(str(launcher))} status")
     print(f"Remote Python path: {python}")

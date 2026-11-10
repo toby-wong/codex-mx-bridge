@@ -6,7 +6,7 @@ implementation with portable tests and an SDK-validated plugin package; physical
 hardware and macOS integration still need the acceptance checks below.
 
 Repository: [toby-wong/codex-mx-bridge](https://github.com/toby-wong/codex-mx-bridge)
-(public). Version 0.3.0. Pi integration added 6 November 2026.
+(public). Version 0.4.0.
 
 ![Animated Logitech MX Creative Console with monthly-salary-cat showing ready, working, approval, turn stop, and exit error states](docs/assets/console-preview.gif)
 
@@ -35,8 +35,8 @@ animations and status colours at 4 fps.
   support focus with an explicit [terminal binding](docs/HERDR-FOCUS.md),
   including clients attached through `herdr --remote`.
 * Unit/integration tests, a real-CLI offline hook smoke test, and build/pack tools.
-  A three-platform CI template is supplied in `ci/`; enabling it requires GitHub
-  workflow permission, which the publishing sign-in did not have.
+  GitHub Actions tests macOS and Linux, builds release packages, verifies
+  Homebrew installations, and publishes the formula after successful checks.
 * `install.sh` for macOS setup and Linux hooks/export setup. It obtains Python
   3.15 if needed, preserves existing hook configuration, and checks the install.
 * [Verified interfaces and limitations](docs/INTERFACES.md),
@@ -77,6 +77,22 @@ command arguments, tool results, and assistant messages are discarded. Remote ex
 identifiers and do not recursively export other remote hosts.
 
 ## macOS setup
+
+Install the complete bridge through Homebrew:
+
+```sh
+brew tap toby-wong/codex-mx-bridge https://github.com/toby-wong/codex-mx-bridge
+brew install codex-mx-bridge
+codex-mx setup --install-options
+```
+
+Homebrew includes Python, pet import support, the settings app, and the prebuilt
+Logitech plugin. Setup preserves existing settings and hooks; selected agent
+CLIs must already be installed. Use `--client claude`, `--client pi`, or
+`--client kiro --agent-config /path/to/profile.json` for other clients.
+See [Homebrew setup, upgrades, and release automation](docs/HOMEBREW.md).
+
+For installation from source:
 
 With Codex CLI and Logi Options+ already installed, run this in iTerm2:
 
@@ -189,7 +205,7 @@ status works without focus permission. See
 `~/.local/state/codex-mx-bridge/focus-status.txt`.
 
 Manual alternative: use `python3.15 bridge.py install-hooks --apply`, review
-`/hooks`, and install `dist/CodexMx_0_3_0.lplug4` from the ZIP by double-clicking.
+`/hooks`, and install `CodexMx_0_4_0.lplug4` from the release by double-clicking.
 Do not install that package alongside the source installer's development link.
 The standalone hook command does not edit `config.toml`; the full installer does
 so only when needed to enable explicitly disabled hooks.

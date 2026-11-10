@@ -8,6 +8,8 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from mxbridge import __version__
 
 
 def main():
@@ -34,7 +36,7 @@ def main():
         tool = shutil.which("logiplugintool")
         if not tool:
             p.error("Install LogiPluginTool 6.1.4.22672, and add its tool directory to PATH")
-        output = ROOT/"CodexMx_0_3_0.lplug4"
+        output = ROOT / f"CodexMx_{__version__.replace('.', '_')}.lplug4"
         subprocess.run([tool, "pack", str(package), str(output)], check=True)
         subprocess.run([tool, "verify", str(output)], check=True)
         print(output)

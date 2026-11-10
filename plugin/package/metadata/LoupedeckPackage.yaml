@@ -1,9 +1,9 @@
 type: plugin4
 name: CodexMx
 displayName: Codex MX Bridge
-description: Local and SSH Codex CLI lifecycle status
+description: Local and SSH Codex, Claude, Kiro, and Pi lifecycle status
 pluginFileName: CodexMxPlugin.dll
-version: 0.3.0
+version: 0.4.0
 author: toby-wong
 copyright: Copyright 2026 toby-wong
 minimumLoupedeckVersion: 6.0

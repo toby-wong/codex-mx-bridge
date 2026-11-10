@@ -117,6 +117,8 @@ def perform(args, *, root=ROOT, platform=None, runner=subprocess.run, installer=
     if prefix in {Path(prefix.anchor), Path.home().resolve(), root.resolve()} or prefix in root.resolve().parents:
         raise InstallError("Choose the dedicated bridge install directory, not a home/source/system root")
     manifest = read_installation(prefix)
+    if manifest.get("distribution") == "homebrew":
+        raise InstallError("This installation is managed by Homebrew. Run brew upgrade codex-mx-bridge, then codex-mx setup.")
     hook_targets = targets_from_manifest(manifest)
     hooks_only = manifest["hooks_only"] or platform == "linux"
     if args.iterm_id is not None and args.bind_herdr is None:
